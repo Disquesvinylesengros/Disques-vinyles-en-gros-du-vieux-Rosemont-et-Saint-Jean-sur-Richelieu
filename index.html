@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disques en gros du Vieux-Rosemont</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+/* ===================== RÉGLAGES — à modifier ===================== */
+const CONFIG = {
+  SHEET_ID: "1x-BWfj-HTFSgmV_V9yNuNfK8o8bzsEKjGS5k72PDkSQ",
+  // Catégories principales = onglets de la Google Sheet.
+  // « sheet » = nom EXACT de l'onglet (ou « gid » = le nombre après gid= dans l'adresse).
+  // Un onglet introuvable est simplement ignoré.
+  CATEGORIES: [
+    { label: "Anglo",     sheet: "ANGLO" },
+    { label: "Franco",    sheet: "FRANCO" },
+    { label: "Jazz",      gid:   "2036111384" },
+    { label: "Classique", sheet: "CLASSIQUE" },
+    { label: "Aubaines",  sheet: "AUBAINES" }
+  ],
+  NEW_DAYS: 30,        // un disque est une « nouveauté » pendant ce nombre de jours
+  STORE_NAME: "Disques en gros du Vieux-Rosemont / Saint-Jean",
+  EMAIL: "samuelcaron92@hotmail.com",
+  MESSENGER: "https://m.me/DisquesVieuxRosemont",
+  REFRESH_MINUTES: 10,
+  // Les photos viennent de la colonne « Photo » remplie par le script Discogs.
+  // true = chercher aussi sur Deezer/iTunes quand la colonne Photo est vide
+  FIND_COVERS: false
+};
+/* ================================================================= */
+</script>
+<style>
+:root{
+  --bg:#f4efe6; --paper:#fbf8f2; --ink:#1c1a17; --muted:#6d665c; --line:#e0d8ca;
+  --red:#c8262b; --accent:#1c1a17; --ok:#2f7d4f; --warn:#b7791f;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 6px 18px rgba(0,0,0,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#161412;--paper:#1f1c19;--ink:#f1ebe0;--muted:#a59c8e;--line:#34302a;--accent:#f1ebe0;--shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.35)}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif}
+header.top{padding:28px 16px 8px;max-width:1280px;margin:0 auto}
+h1{font:700 clamp(26px,4.5vw,44px)/1.05 Fraunces,Georgia,serif;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0}
+.toolbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 16px}
+/* catégories principales */
+.cats{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-top:10px;border-bottom:1px solid var(--line)}
+.cats::-webkit-scrollbar{display:none}
+.cat{flex:none;border:0;background:none;color:var(--muted);font:600 15px Inter,sans-serif;padding:10px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.cat small{font-weight:500;opacity:.7;margin-left:5px}
+.cat.on{color:var(--ink);border-bottom-color:var(--red)}
+.cat.new{color:var(--red)}
+.cat.new.on{color:var(--red)}
+.row1{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 0}
+.search{flex:1 1 240px;display:flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:8px 14px}
+.search input{border:0;outline:0;background:transparent;color:inherit;font:inherit;width:100%}
+select{font:inherit;color:inherit;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:8px 12px;cursor:pointer}
+/* sous-catégories */
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;padding-bottom:10px}
+.chip{flex:none;border:1px solid var(--line);background:var(--paper);color:inherit;border-radius:999px;padding:5px 11px;font:500 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip small{opacity:.6;margin-left:4px}
+main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
+.status{color:var(--muted);padding:40px 0;text-align:center}
+.lead{color:var(--muted);margin:16px 0 0;font-size:14px}
+.section h2{font:700 24px Fraunces,Georgia,serif;margin:28px 0 12px;display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.section h2 small{font:500 13px Inter,sans-serif;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:18px}
+.grid.first{margin-top:18px}
+@media (max-width:480px){.grid{grid-template-columns:repeat(2,1fr);gap:12px}}
+.card{background:var(--paper);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.card.reserved{opacity:.55}
+.cover{position:relative;aspect-ratio:1;cursor:pointer;background:#222;overflow:hidden}
+.cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}
+.cover:hover img{transform:scale(1.04)}
+.ph{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,#2a2622 0 7%,#c8262b 7.5% 17%,#1b1917 17.5% 19%,#0e0d0c 19.5% 100%)}
+.ph::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 50%,transparent 0 3px,rgba(255,255,255,.035) 3px 4px)}
+.ph span{position:relative;z-index:1;color:#fff;font:700 13px Inter,sans-serif;text-align:center;padding:0 22%;margin-top:62%;text-shadow:0 1px 3px #000;line-height:1.2}
+.code{position:absolute;top:8px;left:8px;z-index:3;background:var(--red);color:#fff;font:700 12px Inter,sans-serif;padding:3px 7px;border-radius:5px;letter-spacing:.02em}
+.badges{position:absolute;top:8px;right:8px;z-index:3;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.badges span{font:700 11px Inter,sans-serif;padding:3px 7px;border-radius:5px}
+.b-rare{background:#e7b416;color:#1c1a17}
+.b-new{background:#fff;color:var(--red)}
+.info{position:absolute;inset:0;z-index:2;background:rgba(15,13,11,.9);color:#f4efe6;padding:40px 12px 12px;font-size:12.5px;opacity:0;transition:opacity .2s;display:flex;flex-direction:column;gap:3px;overflow:auto;margin:0}
+.info dt{color:#b9ae9c;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
+.info dd{margin:0}
+.info .hint{margin-top:auto;padding-top:8px;color:#fff;font-weight:600}
+@media (hover:hover){.cover:hover .info{opacity:1}}
+.cover.showinfo .info{opacity:1}
+.incart{position:absolute;inset:0;z-index:4;background:rgba(47,125,79,.78);color:#fff;display:none;place-items:center;font:700 15px Inter,sans-serif;text-align:center}
+.card.in .incart{display:grid}
+.card.in .cover:hover .incart{background:rgba(160,30,30,.8)}
+.card.in .cover:hover .incart b::after{content:" — retirer"}
+.ibtn{position:absolute;bottom:8px;right:8px;z-index:5;width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.9);color:#1c1a17;font:700 14px Georgia,serif;cursor:pointer;display:none}
+@media (hover:none){.ibtn{display:block}}
+.meta{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.artist{font-weight:600;font-size:14px;line-height:1.25}
+.title{color:var(--muted);font-size:13px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row{display:flex;justify-content:space-between;align-items:flex-end;gap:6px;margin-top:auto;padding-top:6px}
+.price{font:700 18px Fraunces,Georgia,serif}
+.grades{display:flex;flex-direction:column;gap:2px;font-size:11px;text-align:right}
+.g{display:inline-flex;gap:4px;align-items:center;justify-content:flex-end}
+.g i{font-style:normal;color:var(--muted)}
+.g b{font-weight:600;padding:1px 6px;border-radius:4px;background:var(--line)}
+.g b.l5{background:#1f6f45;color:#fff}.g b.l4{background:#2f8f58;color:#fff}.g b.l3{background:#7ba34a;color:#fff}.g b.l2{background:#d49a2a;color:#fff}.g b.l1{background:#c0602b;color:#fff}
+.resv{font-size:12px;color:var(--warn);font-weight:600}
+.sentinel{height:1px}
+/* Panier */
+.fab{position:fixed;right:16px;bottom:16px;z-index:30;background:var(--red);color:#fff;border:0;border-radius:999px;padding:14px 20px;font:600 15px Inter,sans-serif;box-shadow:0 8px 24px rgba(200,38,43,.35);cursor:pointer;display:flex;gap:10px;align-items:center}
+.fab .n{background:#fff;color:var(--red);border-radius:999px;min-width:24px;height:24px;display:grid;place-items:center;font-size:13px;padding:0 6px}
+.fab.bump{animation:bump .35s}
+@keyframes bump{50%{transform:scale(1.12)}}
+.drawer{position:fixed;inset:0;z-index:40;display:none}
+.drawer.open{display:block}
+.drawer .veil{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.panel{position:absolute;right:0;top:0;bottom:0;width:min(420px,100%);background:var(--paper);display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.2)}
+.panel header{padding:18px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.panel h3{font:700 22px Fraunces,Georgia,serif;margin:0}
+.x{border:0;background:none;color:inherit;font-size:26px;cursor:pointer;line-height:1}
+.items{flex:1;overflow:auto;padding:8px 16px}
+.it{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.it img,.it .mini{width:48px;height:48px;border-radius:4px;object-fit:cover;background:#222}
+.it .c{color:var(--red);font-weight:700;font-size:12px}
+.it .t{font-size:13px;line-height:1.3}
+.it .gone{color:var(--warn);font-size:12px;font-weight:600}
+.it .p{text-align:right;font-weight:600}
+.it .rm{border:0;background:none;color:var(--muted);cursor:pointer;font-size:12px;text-decoration:underline;padding:0}
+.foot{padding:14px 16px 18px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.tot{display:flex;justify-content:space-between;font:700 20px Fraunces,Georgia,serif}
+.foot input{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.btn{border:0;border-radius:8px;padding:12px;font:600 15px Inter,sans-serif;cursor:pointer;text-align:center}
+.btn.mail{background:var(--accent);color:var(--bg)}
+.btn.fb{background:#0866ff;color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.note{font-size:12px;color:var(--muted);margin:0}
+.empty{color:var(--muted);text-align:center;padding:40px 0}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:50;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
+details.guide{max-width:1280px;margin:10px auto 0;padding:0 16px;color:var(--muted);font-size:13px}
+details.guide summary{cursor:pointer;font-weight:600;color:var(--ink)}
+details.guide dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0}
+details.guide dt{font-weight:700;color:var(--ink)}
+details.guide dd{margin:0}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1 id="storeName">Vinyles</h1>
+  <p class="sub">Cliquez sur une pochette pour l'ajouter à votre sélection, puis envoyez-la-nous par courriel ou Messenger. <span id="count"></span></p>
+</header>
+<details class="guide">
+  <summary>Guide des états (disque et pochette)</summary>
+  <dl>
+    <dt>Mint</dt><dd>Neuf, encore emballé.</dd>
+    <dt>NrMint</dt><dd>Presque neuf : aucun défaut visuel, pas ou presque pas de bruit.</dd>
+    <dt>VG+</dt><dd>Plus que très bien : presque aucun défaut visuel, bruit à peine audible pendant les pièces.</dd>
+    <dt>VG</dt><dd>Très bien : quelques défauts visuels, un peu de bruit entre les pièces et dans les passages calmes, sans nuire à l'écoute.</dd>
+    <dt>G+</dt><dd>Plusieurs défauts visuels, bruit présent du début à la fin sans gâcher complètement l'écoute.</dd>
+    <dt>G</dt><dd>Beaucoup de défauts, le bruit peut nuire à l'écoute, mais le disque ne saute pas.</dd>
+  </dl>
+</details>
+<div class="toolbar"><div class="wrap">
+  <nav class="cats" id="cats" aria-label="Catégories"></nav>
+  <div class="row1">
+    <label class="search"><span aria-hidden="true">⌕</span><input id="q" type="search" placeholder="Chercher dans tout le catalogue : artiste, titre, pressing, numéro…"></label>
+    <select id="sort" aria-label="Trier">
+      <option value="artist">Artiste A–Z</option>
+      <option value="recent">Plus récents</option>
+      <option value="priceAsc">Prix croissant</option>
+      <option value="priceDesc">Prix décroissant</option>
+      <option value="year">Année de parution</option>
+    </select>
+  </div>
+  <div class="chips" id="chips" aria-label="Sous-catégories"></div>
+</div></div>
+<main id="main"><div class="status">Chargement de la liste…</div></main>
+
+<button class="fab" id="fab" aria-label="Voir ma sélection"><span>Ma sélection</span><span class="n" id="fabN">0</span><span id="fabT"></span></button>
+<div class="drawer" id="drawer" aria-hidden="true">
+  <div class="veil" data-close></div>
+  <aside class="panel" role="dialog" aria-label="Ma sélection">
+    <header><h3>Ma sélection</h3><button class="x" data-close aria-label="Fermer">×</button></header>
+    <div class="items" id="items"></div>
+    <div class="foot">
+      <div class="tot"><span>Total</span><span id="total">0 $</span></div>
+      <input id="cname" placeholder="Votre nom (facultatif)">
+      <button class="btn mail" id="sendMail">Envoyer par courriel</button>
+      <button class="btn fb" id="sendFb">Copier et envoyer sur Messenger</button>
+      <p class="note">Aucun paiement en ligne : nous vous répondons pour confirmer la disponibilité et convenir du paiement et de la cueillette.</p>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fold = s => String(s||"").toLowerCase().normalize("NFD").replace(/\p{M}/gu,"");
+const store = {
+  get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+$("#storeName").textContent = CONFIG.STORE_NAME;
+document.title = CONFIG.STORE_NAME;
+
+let ALL = [], CATS = [];          // CATS : catégories réellement chargées
+let cat = null, style = "Tous", query = "", sort = "artist";
+let cart = store.get("vinyl-cart") || {};
+let lastSig = "";
+
+/* ---------- Lecture de la Google Sheet ---------- */
+function parseCSV(text){
+  const rows=[]; let row=[], f="", q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else if(c==='"') q=true;
+    else if(c===','){ row.push(f); f=""; }
+    else if(c==='\n'){ row.push(f); rows.push(row); row=[]; f=""; }
+    else if(c!=='\r') f+=c;
+  }
+  if(f||row.length){ row.push(f); rows.push(row); }
+  return rows;
+}
+function jsonp(url, timeout=12000){
+  return new Promise((res,rej)=>{
+    const cb="cb_"+Math.random().toString(36).slice(2);
+    const s=document.createElement("script");
+    const done=()=>{ clearTimeout(t); delete window[cb]; s.remove(); };
+    const t=setTimeout(()=>{ done(); rej(new Error("timeout")); }, timeout);
+    window[cb]=d=>{ done(); res(d); };
+    s.onerror=()=>{ done(); rej(new Error("load")); };
+    s.src = url.includes("{CB}") ? url.replace("{CB}", cb) : url + (url.includes("?")?"&":"?") + "callback=" + cb;
+    document.head.appendChild(s);
+  });
+}
+async function loadTab(c){
+  const base=`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq`;
+  const which = c.gid ? `gid=${encodeURIComponent(c.gid)}` : `sheet=${encodeURIComponent(c.sheet)}`;
+  try{
+    const r=await fetch(`${base}?tqx=out:csv&${which}&_=${Date.now()}`, {cache:"no-store"});
+    if(!r.ok) throw new Error(r.status);
+    return parseCSV(await r.text());
+  }catch(e){
+    const d=await jsonp(`${base}?${which}&headers=0&tqx=out:json;responseHandler:{CB}`);
+    return (d.table.rows||[]).map(r=>(r.c||[]).map(c=>c? (c.f ?? (c.v==null?"":String(c.v))) : ""));
+  }
+}
+
+const clean = s => String(s||"").replace(/[‎‏]/g,"").replace(/\s+/g," ").trim();
+const grade = s => clean(s).replace(/\s*\/\s*/g," / ").replace(/\s+([+\-])/g,"$1").replace(/\+ \+/g,"++");
+function gradeLevel(s){
+  const u=String(s).toUpperCase().split("/")[0];
+  if(/MINT|SCELL/.test(u) && !/NRMINT/.test(u)) return 5;
+  if(/NRMINT/.test(u)) return 4;
+  if(/VG\s*\+/.test(u)) return 3;
+  if(/VG/.test(u)) return 2;
+  if(/G/.test(u)) return 1;
+  return 0;
+}
+// « Style de musique » -> liste de sous-catégories normalisées
+function styles(s){
+  const parts=String(s||"").replace(/[‎‏]/g,"").split(/\n|\/|,|\s{2,}/).map(p=>p.trim()).filter(Boolean);
+  const out=parts.map(p=>p.toLowerCase().replace(/(^|[\s\-])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase()));
+  return out.length ? [...new Set(out)] : ["Autre"];
+}
+function normYear(s){
+  const d=String(s).replace(/\D/g,"");
+  if(!d) return "";
+  const n=+d;
+  if(d.length<=2) return String(n<30?2000+n:1900+n);
+  return String(n);
+}
+function parseDate(s){
+  s=clean(s); if(!s) return 0;
+  let m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]).getTime();
+  m=s.match(/(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})/);   // jj/mm/aaaa
+  if(m){ const y=+m[3]<100?2000+ +m[3]:+m[3]; return new Date(y,+m[2]-1,+m[1]).getTime(); }
+  const t=Date.parse(s); return isNaN(t)?0:t;
+}
+function buildItems(rows, catLabel){
+  const hi=rows.findIndex(r=>r.some(c=>/prix/i.test(c)) && r.some(c=>/titre/i.test(c)));
+  const H=(hi>=0?rows[hi]:[]).map(h=>clean(h).toLowerCase());
+  const find=(re,def)=>{ const i=H.findIndex(h=>h.length<40 && re.test(h)); return i>=0?i:def; };
+  const col={
+    code:0, rare:1,
+    artist:find(/nom|artiste/,2), title:find(/titre/,3), price:find(/prix/,5),
+    disc:find(/tat du disque|tat disque/,8), sleeve:find(/tat\s*(de la\s*)?pochette/,9),
+    pressing:find(/pressing/,10), nb:find(/nbre|nombre|^lp$/,11), style:find(/style|genre/,12),
+    country:find(/pays/,13), year:find(/ann[ée]e/,14), notes:find(/comment/,15),
+    photo:find(/^photo/,-1), status:find(/r[ée]serv|statut|vendu/,-1), added:find(/ajout/,-1)
+  };
+  const now=Date.now(), newMs=CONFIG.NEW_DAYS*864e5;
+  const out=[];
+  for(const r of rows){
+    const code=clean(r[col.code]);
+    if(!/^[A-Za-z]{1,4}\s*-\s*\d+/.test(code)) continue;
+    const priceTxt=clean(r[col.price]);
+    const price=parseFloat(priceTxt.replace(",",".").replace(/[^\d.]/g,""))||0;
+    const status=col.status>=0?clean(r[col.status]):"";
+    const notes=clean(r[col.notes]);
+    const photo=col.photo>=0?clean(r[col.photo]):"";
+    const added=col.added>=0?parseDate(r[col.added]):0;
+    const st=styles(r[col.style]);
+    out.push({
+      code: code.replace(/\s+/g,""), num: parseInt(code.replace(/^\D+/,""),10)||0, cat: catLabel,
+      rare: /rare/i.test(r[col.rare]||""),
+      artist: clean(r[col.artist]) || "Artiste inconnu",
+      title: clean(r[col.title]),
+      price, priceTxt: price? price.toLocaleString("fr-CA",{maximumFractionDigits:2})+" $" : priceTxt,
+      disc: grade(r[col.disc]), sleeve: grade(r[col.sleeve]),
+      pressing: clean(r[col.pressing]), nb: clean(r[col.nb]),
+      styles: st, styleTxt: st.join(" / "), country: clean(r[col.country]),
+      year: normYear(r[col.year]), notes,
+      photo: /^https?:\/\//i.test(photo) ? photo : "",
+      added, isNew: !!added && now-added <= newMs && added <= now+864e5,
+      reserved: /r[ée]serv|vendu/i.test(status) || /^r[ée]serv/i.test(notes)
+    });
+  }
+  return out;
+}
+async function load(first){
+  const res=await Promise.allSettled(CONFIG.CATEGORIES.map(loadTab));
+  const seen=new Set(), items=[], cats=[];
+  res.forEach((r,idx)=>{
+    const c=CONFIG.CATEGORIES[idx];
+    if(r.status!=="fulfilled"){ console.warn("Onglet non chargé :", c.label, r.reason); return; }
+    const its=buildItems(r.value, c.label);
+    // Google renvoie le premier onglet quand un nom n'existe pas : on ignore les doublons
+    const sig=its.slice(0,5).map(i=>i.code).join("|");
+    if(!its.length || seen.has(sig)){ console.warn("Onglet introuvable ou vide :", c.label); return; }
+    seen.add(sig); items.push(...its); cats.push({label:c.label, n:its.length});
+  });
+  if(!items.length){
+    if(first) $("#main").innerHTML=`<div class="status">Impossible de charger la liste pour le moment. Vérifiez que la Google Sheet est partagée « Tous les utilisateurs disposant du lien — Lecteur », puis rechargez la page.</div>`;
+    return;
+  }
+  // rien n'a changé depuis la dernière lecture : on ne redessine pas (garde la position de défilement)
+  const sig=items.map(i=>[i.code,i.price,i.added,i.photo,i.reserved,i.disc,i.sleeve].join("~")).join("|");
+  if(!first && sig===lastSig) return;
+  lastSig=sig;
+  ALL=items; CATS=cats;
+  const codes=new Set(ALL.map(i=>i.code));
+  for(const k in cart) cart[k].gone=!codes.has(k);
+  const hasNew=ALL.some(i=>i.isNew);
+  const valid=k=>k==="__all" || (k==="__new" && hasNew) || CATS.some(c=>c.label===k);
+  if(first){
+    cat = hasNew ? "__new" : CATS[0].label;
+    if(hasNew){ sort="recent"; $("#sort").value="recent"; }
+  } else if(!valid(cat)) cat=CATS[0].label;
+  render(); renderCart();
+}
+
+/* ---------- Filtres ---------- */
+const inCat = i => cat==="__all" || (cat==="__new" ? i.isNew : i.cat===cat);
+function baseList(){
+  if(query){
+    const q=fold(query);
+    return ALL.filter(i=>fold([i.code,i.artist,i.title,i.pressing,i.styleTxt,i.country,i.year,i.notes,i.cat].join(" ")).includes(q));
+  }
+  return ALL.filter(inCat);
+}
+function sorted(list){
+  const byArtist=(a,b)=>a.artist.localeCompare(b.artist,"fr",{sensitivity:"base"})||a.title.localeCompare(b.title,"fr");
+  const f={
+    artist:byArtist,
+    recent:(a,b)=>(b.added-a.added)||(b.num-a.num),
+    priceAsc:(a,b)=>a.price-b.price||byArtist(a,b),
+    priceDesc:(a,b)=>b.price-a.price||byArtist(a,b),
+    year:(a,b)=>(a.year||"9999").localeCompare(b.year||"9999")||byArtist(a,b)
+  }[sort];
+  return list.slice().sort(f);
+}
+
+/* ---------- Affichage ---------- */
+function renderCats(){
+  const nNew=ALL.filter(i=>i.isNew).length;
+  const tabs=[];
+  if(nNew) tabs.push({k:"__new",label:"Nouveautés",n:nNew,cls:"new"});
+  CATS.forEach(c=>tabs.push({k:c.label,label:c.label,n:c.n}));
+  tabs.push({k:"__all",label:"Tout",n:ALL.length});
+  $("#cats").innerHTML=tabs.map(t=>`<button class="cat ${t.cls||""} ${!query&&cat===t.k?"on":""}" data-cat="${esc(t.k)}">${esc(t.label)}<small>${t.n}</small></button>`).join("");
+}
+function renderChips(base){
+  const counts={};
+  base.forEach(i=>i.styles.forEach(s=>counts[s]=(counts[s]||0)+1));
+  const ss=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||a.localeCompare(b,"fr"));
+  if(style!=="Tous" && !counts[style]) style="Tous";
+  $("#chips").innerHTML = ss.length<2 ? "" :
+    [`<button class="chip ${style==="Tous"?"on":""}" data-style="Tous">Tous les styles<small>${base.length}</small></button>`]
+    .concat(ss.map(s=>`<button class="chip ${style===s?"on":""}" data-style="${esc(s)}">${esc(s)}<small>${counts[s]}</small></button>`)).join("");
+}
+function card(i){
+  const key=i.code, inCart=!!cart[key];
+  const img=i.photo || coverCache[key]?.u || "";
+  const d=(k,v)=>v?`<dt>${k}</dt><dd>${esc(v)}</dd>`:"";
+  const addedTxt=i.added?new Date(i.added).toLocaleDateString("fr-CA",{day:"numeric",month:"long",year:"numeric"}):"";
+  return `<article class="card ${inCart?"in":""} ${i.reserved?"reserved":""}" data-code="${esc(key)}">
+    <div class="cover" data-add="${esc(key)}" title="${i.reserved?"Réservé":"Cliquer pour ajouter à ma sélection"}">
+      ${img?`<img src="${esc(img)}" alt="${esc(i.artist+" – "+i.title)}" loading="lazy" referrerpolicy="no-referrer">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
+      <span class="code">${esc(i.code)}</span>
+      <span class="badges">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
+      <dl class="info">
+        ${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${d("Catégorie",i.cat)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}
+        <span class="hint">${i.reserved?"Réservé":inCart?"Cliquer pour retirer":"Cliquer pour ajouter +"}</span>
+      </dl>
+      <div class="incart"><b>✓ Dans ma sélection</b></div>
+      <button class="ibtn" data-info aria-label="Détails">i</button>
+    </div>
+    <div class="meta">
+      <div class="artist">${esc(i.artist)}</div>
+      <div class="title">${esc(i.title)}</div>
+      ${i.reserved?'<div class="resv">Réservé</div>':""}
+      <div class="row"><span class="price">${esc(i.priceTxt)}</span>
+        <span class="grades"><span class="g"><i>Disque</i><b class="l${gradeLevel(i.disc)}">${esc(i.disc||"–")}</b></span><span class="g"><i>Pochette</i><b class="l${gradeLevel(i.sleeve)}">${esc(i.sleeve||"–")}</b></span></span>
+      </div>
+    </div></article>`;
+}
+
+// rendu progressif : 120 pochettes à la fois, la suite en défilant
+let entries=[], pos=0, curGrid=null, moreIO=null;
+const CHUNK=120;
+function render(){
+  renderCats();
+  const base=baseList();
+  renderChips(base);
+  const list=sorted(style==="Tous"?base:base.filter(i=>i.styles.includes(style)));
+  $("#count").textContent=`${ALL.length.toLocaleString("fr-CA")} albums en ligne.`;
+  const main=$("#main"); main.innerHTML="";
+  moreIO?.disconnect();
+  if(query) main.insertAdjacentHTML("beforeend",`<p class="lead">${list.length} résultat${list.length>1?"s":""} pour « ${esc(query)} » dans tout le catalogue.</p>`);
+  else if(cat==="__new") main.insertAdjacentHTML("beforeend",`<p class="lead">Les disques ajoutés dans les ${CONFIG.NEW_DAYS} derniers jours.</p>`);
+  if(!list.length){ main.insertAdjacentHTML("beforeend",'<div class="empty">Aucun album ne correspond.</div>'); return; }
+
+  // regrouper par lettre quand on trie par artiste
+  entries=[];
+  if(sort==="artist"){
+    const letter=i=>{ const c=fold(i.artist).replace(/^the\s+/,"").charAt(0).toUpperCase(); return /[A-Z]/.test(c)?c:"#"; };
+    const counts={}; list.forEach(i=>{ const l=letter(i); counts[l]=(counts[l]||0)+1; });
+    let last=null;
+    for(const i of list){ const l=letter(i); if(l!==last){ entries.push({h:l,n:counts[l]}); last=l; } entries.push({i}); }
+  } else {
+    entries.push({grid:true}); list.forEach(i=>entries.push({i}));
+  }
+  pos=0; curGrid=null;
+  renderMore();
+}
+function renderMore(){
+  const main=$("#main");
+  main.querySelector(".sentinel")?.remove();
+  let buf="", shown=0;
+  const flush=()=>{ if(buf && curGrid){ curGrid.insertAdjacentHTML("beforeend",buf); } buf=""; };
+  while(pos<entries.length && shown<CHUNK){
+    const e=entries[pos++];
+    if(e.h!==undefined || e.grid){
+      flush();
+      if(e.grid){ curGrid=document.createElement("div"); curGrid.className="grid first"; main.appendChild(curGrid); }
+      else {
+        const sec=document.createElement("section"); sec.className="section";
+        sec.innerHTML=`<h2>${esc(e.h)} <small>${e.n}</small></h2><div class="grid"></div>`;
+        main.appendChild(sec); curGrid=sec.querySelector(".grid");
+      }
+    } else { buf+=card(e.i); shown++; }
+  }
+  flush();
+  observeCovers();
+  if(pos<entries.length){
+    const s=document.createElement("div"); s.className="sentinel"; main.appendChild(s);
+    moreIO?.disconnect();
+    moreIO=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ moreIO.disconnect(); renderMore(); } },{rootMargin:"800px"});
+    moreIO.observe(s);
+  }
+}
+
+/* ---------- Pochettes de secours (Deezer, puis iTunes) — désactivé par défaut ---------- */
+const coverCache = store.get("vinyl-covers") || {};
+for(const k in coverCache){ if(typeof coverCache[k]==="string") coverCache[k]={u:coverCache[k],t:Date.now()}; }
+const saveCovers = () => store.set("vinyl-covers", coverCache);
+const norm = s => fold(s).replace(/\(.*?\)|\[.*?\]/g," ").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+const words = s => new Set(norm(s).split(" ").filter(w=>w.length>1 && !["the","and","his","her","with","orchestra","trio","quartet","quintet","band","de","la","le","les","et"].includes(w)));
+function score(item, artist, title){
+  const A=words(item.artist), T=words(item.title), a=words(artist), t=words(title);
+  let sa=0; A.forEach(w=>{ if(a.has(w)) sa++; });
+  let st=0; T.forEach(w=>{ if(t.has(w)) st++; });
+  if(!sa) return 0;
+  return sa/Math.max(1,Math.min(A.size,2)) + st/Math.max(1,T.size);
+}
+async function findCover(i){
+  const q=norm(i.artist.replace(/\*/g,"")+" "+i.title).split(" ").slice(0,8).join(" ");
+  try{
+    const d=await jsonp(`https://api.deezer.com/search/album?q=${encodeURIComponent(q)}&limit=6&output=jsonp`);
+    const best=(d.data||[]).map(x=>({x,s:score(i,x.artist?.name||"",x.title||"")})).sort((a,b)=>b.s-a.s)[0];
+    if(best && best.s>=1.2) return best.x.cover_big || best.x.cover_medium;
+  }catch(e){}
+  try{
+    const d=await jsonp(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=6&country=CA`);
+    const best=(d.results||[]).map(x=>({x,s:score(i,x.artistName||"",x.collectionName||"")})).sort((a,b)=>b.s-a.s)[0];
+    if(best && best.s>=1.2) return best.x.artworkUrl100.replace("100x100bb","600x600bb");
+  }catch(e){}
+  return "";
+}
+const queue=[]; let running=0;
+function pump(){
+  while(running<3 && queue.length){
+    const i=queue.shift(); running++;
+    findCover(i).then(url=>{
+      coverCache[i.code]={u:url,t:Date.now()}; saveCovers();
+      if(url) document.querySelectorAll(`.card[data-code="${CSS.escape(i.code)}"] .cover`).forEach(c=>{
+        const ph=c.querySelector(".ph"); if(!ph) return;
+        const im=new Image(); im.src=url; im.alt=i.artist+" – "+i.title; im.loading="lazy"; ph.replaceWith(im);
+      });
+    }).finally(()=>{ running--; setTimeout(pump,250); });
+  }
+}
+let io;
+function observeCovers(){
+  if(!CONFIG.FIND_COVERS) return;
+  io ||= new IntersectionObserver(es=>es.forEach(e=>{
+    if(!e.isIntersecting) return;
+    io.unobserve(e.target);
+    const i=ALL.find(x=>x.code===e.target.dataset.code); if(!i || i.photo) return;
+    const c=coverCache[i.code];
+    if(c && (c.u || Date.now()-c.t<7*864e5)) return;
+    queue.push(i); pump();
+  }),{rootMargin:"400px"});
+  document.querySelectorAll(".card:not([data-obs])").forEach(c=>{ c.dataset.obs=1; if(c.querySelector(".ph")) io.observe(c); });
+}
+
+/* ---------- Panier ---------- */
+const money = n => n.toLocaleString("fr-CA",{minimumFractionDigits:0,maximumFractionDigits:2})+" $";
+function toggle(code){
+  const i=ALL.find(x=>x.code===code); if(!i) return;
+  if(i.reserved && !cart[code]){ toast("Cet album est déjà réservé."); return; }
+  if(cart[code]) delete cart[code];
+  else cart[code]={code,artist:i.artist,title:i.title,price:i.price,priceTxt:i.priceTxt,img:i.photo||coverCache[code]?.u||""};
+  store.set("vinyl-cart",cart);
+  document.querySelectorAll(`.card[data-code="${CSS.escape(code)}"]`).forEach(c=>{
+    c.classList.toggle("in",!!cart[code]);
+    const h=c.querySelector(".hint"); if(h) h.textContent=cart[code]?"Cliquer pour retirer":"Cliquer pour ajouter +";
+  });
+  renderCart(); $("#fab").classList.remove("bump"); void $("#fab").offsetWidth; $("#fab").classList.add("bump");
+  if(cart[code]) toast(`${code} ajouté à votre sélection`);
+}
+function renderCart(){
+  const items=Object.values(cart);
+  const avail=items.filter(i=>!i.gone);
+  const total=avail.reduce((s,i)=>s+(i.price||0),0);
+  $("#fabN").textContent=items.length;
+  $("#fabT").textContent=items.length?money(total):"";
+  $("#total").textContent=money(total);
+  $("#sendMail").disabled=$("#sendFb").disabled=!avail.length;
+  $("#items").innerHTML=items.length? items.map(i=>`<div class="it">
+      ${i.img?`<img src="${esc(i.img)}" alt="" referrerpolicy="no-referrer">`:'<div class="mini"></div>'}
+      <div><div class="c">${esc(i.code)}</div><div class="t">${esc(i.artist)} — ${esc(i.title)}</div>${i.gone?'<div class="gone">Plus disponible</div>':""}</div>
+      <div class="p">${esc(i.priceTxt)}<br><button class="rm" data-rm="${esc(i.code)}">retirer</button></div></div>`).join("")
+    : '<div class="empty">Votre sélection est vide.<br>Cliquez sur une pochette pour l\'ajouter.</div>';
+}
+function orderText(){
+  const items=Object.values(cart).filter(i=>!i.gone);
+  const total=items.reduce((s,i)=>s+(i.price||0),0);
+  const name=$("#cname").value.trim();
+  return `Bonjour! J'aimerais réserver ces vinyles :\n\n`+
+    items.map(i=>`${i.code} — ${i.artist} — ${i.title} (${i.priceTxt})`).join("\n")+
+    `\n\nNuméros : ${items.map(i=>i.code).join(", ")}\nTotal : ${money(total)}`+(name?`\n\n${name}`:"");
+}
+$("#sendMail").onclick=()=>{
+  const codes=Object.values(cart).filter(i=>!i.gone).map(i=>i.code).join(", ");
+  location.href=`mailto:${CONFIG.EMAIL}?subject=${encodeURIComponent("Commande vinyles — "+codes)}&body=${encodeURIComponent(orderText())}`;
+};
+$("#sendFb").onclick=async()=>{
+  const t=orderText();
+  try{ await navigator.clipboard.writeText(t); toast("Liste copiée! Collez-la dans Messenger."); }
+  catch(e){ prompt("Copiez ce texte et collez-le dans Messenger :", t); }
+  setTimeout(()=>window.open(CONFIG.MESSENGER,"_blank","noopener"),600);
+};
+let tt; function toast(m){ const el=$("#toast"); el.textContent=m; el.classList.add("on"); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove("on"),1800); }
+
+/* ---------- Événements ---------- */
+document.addEventListener("click",e=>{
+  const info=e.target.closest("[data-info]");
+  if(info){ e.stopPropagation(); info.parentElement.classList.toggle("showinfo"); return; }
+  const add=e.target.closest("[data-add]"); if(add){ toggle(add.dataset.add); return; }
+  const rm=e.target.closest("[data-rm]");
+  if(rm){ const c=rm.dataset.rm; if(ALL.some(x=>x.code===c)) toggle(c); else { delete cart[c]; store.set("vinyl-cart",cart); renderCart(); } return; }
+  const ct=e.target.closest("[data-cat]");
+  if(ct){
+    cat=ct.dataset.cat; style="Tous"; query=""; $("#q").value="";
+    if(cat==="__new"){ sort="recent"; $("#sort").value="recent"; }
+    else if(sort==="recent" && e.isTrusted){ sort="artist"; $("#sort").value="artist"; }
+    render(); window.scrollTo({top:$(".toolbar").offsetTop,behavior:"smooth"}); return;
+  }
+  const chip=e.target.closest("[data-style]"); if(chip){ style=chip.dataset.style; render(); return; }
+  if(e.target.closest("[data-close]")) closeDrawer();
+});
+$("#fab").onclick=()=>{ $("#drawer").classList.add("open"); $("#drawer").setAttribute("aria-hidden","false"); };
+function closeDrawer(){ $("#drawer").classList.remove("open"); $("#drawer").setAttribute("aria-hidden","true"); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeDrawer(); });
+let qt; $("#q").addEventListener("input",e=>{ clearTimeout(qt); qt=setTimeout(()=>{ query=e.target.value.trim(); style="Tous"; render(); },200); });
+$("#sort").onchange=e=>{ sort=e.target.value; render(); };
+
+renderCart();
+load(true);
+setInterval(()=>load(false), CONFIG.REFRESH_MINUTES*60*1000);
+})();
+</script>
+</body>
+</html>
