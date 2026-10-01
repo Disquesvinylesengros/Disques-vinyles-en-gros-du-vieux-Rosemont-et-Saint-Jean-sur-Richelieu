@@ -39,6 +39,14 @@ const CONFIG = {
     { min: 100, pct: 15 },
     { min: 200, pct: 20 }
   ],
+  // Onglets par style : regroupent les disques de la liste principale (Anglo, Franco, Jazz…)
+  // dont la colonne « Style de musique » contient un de ces mots.
+  STYLE_TABS: [
+    { label: "Punk/Metal", match: ["punk", "metal", "hard rock", "hardrock"] },
+    { label: "Funk/Soul",  match: ["funk", "soul"] },
+    { label: "Blues",      match: ["blues"] },
+    { label: "Alternatif/New Wave", match: ["alternati", "new wave", "new-wave", "newwave"] }
+  ],
   NEW_DAYS: 30,        // un disque est une « nouveauté » pendant ce nombre de jours
   STORE_NAME: "Disques en gros du Vieux-Rosemont / Saint-Jean",
   EMAIL: "samuelcaron92@hotmail.com",
@@ -417,7 +425,7 @@ function buildItems(rows, catLabel, cf={}){
     code:0, rare:1,
     artist:find(/nom|artiste/,2), title:find(/titre|album/,3), price:find(/prix/,5),
     disc:find(/tat du disque|tat disque/,8), sleeve:find(/tat\s*(de la\s*)?pochette/,9),
-    pressing:find(/pressing/,10), nb:find(/nbre|nombre|^lp$/,11), style:find(/style|genre/,12),
+    pressing:find(/pressing/,10), nb:find(/nbre|nombre|^lp$/,11), style:find(/^(?!.*discogs).*(style|genre)/,12), dgenre:find(/genre discogs/,-1), dstyles:find(/styles discogs/,-1),
     country:find(/pays/,13), year:find(/ann[ée]e/,14), notes:find(/comment/,15),
     photo:find(/^photo/,-1), status:find(/r[ée]serv|statut|vendu/,-1), added:find(/ajout/,-1)
   };
@@ -432,7 +440,12 @@ function buildItems(rows, catLabel, cf={}){
     const notes=clean(r[col.notes]);
     const photo=col.photo>=0?clean(r[col.photo]):"";
     const added=col.added>=0?parseDate(r[col.added]):0;
-    const st=styles(r[col.style]);
+    // Genre et styles Discogs (remplis par le script) ; sinon la colonne « Style de musique » de la liste
+    const dlist = c => c<0 ? [] : String(r[c]||"").split("|").map(x=>x.trim()).filter(x=>x && x!=="-");
+    const dg=dlist(col.dgenre), ds=dlist(col.dstyles);
+    const own=styles(r[col.style]);
+    const fromDiscogs = dg.length>0 || ds.length>0;
+    const st = fromDiscogs ? (ds.length ? ds : dg) : own;
     out.push({
       code: code.replace(/\s+/g,""), num: parseInt(code.replace(/^\D+/,""),10)||0, cat: catLabel,
       rare: !cf.qtyInColB && /rare/i.test(r[col.rare]||""),
@@ -442,7 +455,8 @@ function buildItems(rows, catLabel, cf={}){
       price, priceTxt: price? price.toLocaleString("fr-CA",{maximumFractionDigits:2})+" $" : priceTxt,
       disc: grade(r[col.disc]), sleeve: grade(r[col.sleeve]),
       pressing: clean(r[col.pressing]), nb: clean(r[col.nb]),
-      styles: st, styleTxt: st.join(" / "), country: clean(r[col.country]),
+      styles: st, styleTxt: st.join(" / "), genreTxt: dg.join(" / "),
+      matchTxt: fold((fromDiscogs ? [...dg, ...ds] : own).join(" / ")), country: clean(r[col.country]),
       year: normYear(r[col.year]), notes,
       photo: /^https?:\/\//i.test(photo) ? photo : "",
       added, isNew: !!added && now-added <= newMs && added <= now+864e5,
@@ -484,7 +498,7 @@ async function load(first){
   const codes=new Set(ALL.map(i=>i.code));
   for(const k in cart) cart[k].gone=!codes.has(k);
   const hasNew=ALL.some(i=>i.isNew);
-  const valid=k=>k==="__all" || (k==="__new" && hasNew) || CATS.some(c=>c.label===k);
+  const valid=k=>k==="__all" || (k==="__new" && hasNew) || CATS.some(c=>c.label===k) || STYLE_TABS.some(t=>t.key===k && ALL.some(i=>inStyleTab(i,t)));
   if(first) cat="__all";            // le site s'ouvre sur l'onglet Tout
   else if(!valid(cat)) cat="__all";
   render(); renderCart();
@@ -493,7 +507,14 @@ async function load(first){
 /* ---------- Filtres ---------- */
 // les catégories « hot » (Aubaines) ne font pas partie de l'onglet Tout
 const HOT = new Set(CONFIG.CATEGORIES.filter(c=>c.hot).map(c=>c.label));
-const inCat = i => cat==="__all" ? !HOT.has(i.cat) : (cat==="__new" ? i.isNew : i.cat===cat);
+const STYLE_TABS = (CONFIG.STYLE_TABS||[]).map(t=>({key:"style:"+t.label, label:t.label, words:t.match.map(w=>fold(w))}));
+const inStyleTab = (i,t) => !HOT.has(i.cat) && t.words.some(w=>i.matchTxt.includes(w));
+const inCat = i => {
+  if(cat==="__all") return !HOT.has(i.cat);
+  if(cat==="__new") return i.isNew;
+  const st=STYLE_TABS.find(t=>t.key===cat); if(st) return inStyleTab(i,st);
+  return i.cat===cat;
+};
 function baseList(){
   if(query){
     const q=fold(query);
@@ -521,6 +542,7 @@ function renderCats(){
   tabs.push({k:"__all",label:"Tout",n:ALL.filter(i=>!HOT.has(i.cat)).length});
   const hot=[];
   CATS.forEach(c=>{ const cf=CONFIG.CATEGORIES.find(x=>x.label===c.label)||{}; const t={k:c.label,label:(cf.icon?cf.icon+" ":"")+c.label,n:c.n,cls:cf.hot?"hot":""}; (cf.hot?hot:tabs).push(t); });
+  STYLE_TABS.forEach(t=>{ const n=ALL.filter(i=>inStyleTab(i,t)).length; if(n) tabs.push({k:t.key,label:t.label,n}); });
   tabs.push(...hot);                 // l'onglet Aubaines en dernier
   $("#cats").innerHTML=tabs.map(t=>`<button class="cat ${t.cls||""} ${!query&&cat===t.k?"on":""}" data-cat="${esc(t.k)}">${esc(t.label)}<small>${t.n}</small></button>`).join("");
 }
@@ -544,7 +566,7 @@ function card(i){
       <span class="code">${esc(i.code)}</span>
       <span class="badges">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
       <dl class="info">
-        ${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}
+        ${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Genre",i.genreTxt)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}
         <span class="hint">${i.reserved?"Réservé":inCart?"Cliquer pour retirer":"Cliquer pour ajouter +"}</span>
       </dl>
       <div class="incart"><b>✓ Dans ma sélection</b></div>
@@ -575,7 +597,7 @@ function row(i){
         <span class="chev" aria-hidden="true">▾</span></span>
     </button>
     <button class="ladd" data-add="${esc(i.code)}" aria-label="${inCart?"Retirer de":"Ajouter à"} ma sélection"><span></span></button>
-    <dl class="ldet">${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}</dl>
+    <dl class="ldet">${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Genre",i.genreTxt)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}</dl>
   </article>`;
 }
 
