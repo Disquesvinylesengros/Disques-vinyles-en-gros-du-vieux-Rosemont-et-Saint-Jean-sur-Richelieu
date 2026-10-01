@@ -47,6 +47,10 @@ const CONFIG = {
     { label: "Blues",      match: ["blues"] },
     { label: "Alternatif/New Wave", match: ["alternati", "new wave", "new-wave", "newwave"] }
   ],
+  // Commande et collecte
+  MIN_ORDER: 25,       // commande minimum pour prendre rendez-vous
+  SHIP_MIN: 150,       // livraison offerte à partir de ce montant
+  PICKUP: ["Saint-Jean-sur-Richelieu", "Vieux-Rosemont (Montréal)"],
   NEW_DAYS: 30,        // un disque est une « nouveauté » pendant ce nombre de jours
   STORE_NAME: "Disques en gros du Vieux-Rosemont / Saint-Jean",
   EMAIL: "samuelcaron92@hotmail.com",
@@ -219,7 +223,8 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .panel header{padding:18px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
 .panel h3{font:700 22px Fraunces,Georgia,serif;margin:0}
 .x{border:0;background:none;color:inherit;font-size:26px;cursor:pointer;line-height:1}
-.items{flex:1;overflow:auto;padding:8px 16px}
+.panel{overflow-y:auto}
+.items{flex:none;padding:8px 16px}
 .it{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .it img,.it .mini{width:48px;height:48px;border-radius:4px;object-fit:cover;background:#222}
 .it .c{color:var(--red);font-weight:700;font-size:12px}
@@ -235,6 +240,22 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .btn.fb{background:#0866ff;color:#fff}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .note{font-size:12px;color:var(--muted);margin:0}
+.sumline[hidden]{display:none}
+.cats2{display:flex;padding:10px 0 2px}
+.cats2[hidden]{display:none}
+.cats2 .cat.hot{margin:0}
+.minwarn{background:#fff4d6;color:#6b4a00;border:1px solid #f0c75e;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.4}
+.minwarn b{display:block;font-size:15px;margin-bottom:2px}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}
+.fld em,.loc em{color:var(--red);font-style:normal}
+.loc{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.loc legend{font-size:13px;font-weight:600;margin-bottom:4px;padding:0}
+.opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);cursor:pointer;font-size:14px}
+.opt input{margin-top:3px;accent-color:var(--red)}
+.opt small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.opt.dis{opacity:.55;cursor:not-allowed}
+.opt:has(input:checked){border-color:var(--red);background:var(--paper)}
+.blocker{font-size:13px;color:var(--red);font-weight:600;text-align:center}
 .empty{color:var(--muted);text-align:center;padding:40px 0}
 .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:50;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
@@ -274,7 +295,7 @@ details.guide dd{margin:0}
 <div class="promo" id="promoWrap"><div class="promo-in" id="promo"></div></div>
 <header class="top">
   <h1 id="storeName">Vinyles</h1>
-  <p class="sub">Choisissez vos disques, puis envoyez-nous votre sélection par courriel ou Messenger. <span id="count"></span></p>
+  <p class="sub">Choisissez vos disques, puis copiez votre commande pour nous l'envoyer sur Facebook. <span id="count"></span></p>
 </header>
 <details class="guide">
   <summary>Guide des états (disque et pochette)</summary>
@@ -289,6 +310,7 @@ details.guide dd{margin:0}
 </details>
 <div class="toolbar"><div class="wrap">
   <nav class="cats" id="cats" aria-label="Catégories"></nav>
+  <nav class="cats2" id="cats2" aria-label="Aubaines"></nav>
   <div class="row1">
     <label class="search"><span aria-hidden="true">⌕</span><input id="q" type="search" placeholder="Chercher dans tout le catalogue : artiste, titre, pressing, numéro…"></label>
     <select id="sort" aria-label="Trier">
@@ -318,10 +340,13 @@ details.guide dd{margin:0}
       <div class="sumline"><span>Sous-total</span><span id="subtotal">0 $</span></div>
       <div class="sumline disc" id="discLine" hidden><span id="discLbl">Rabais</span><span id="discAmt"></span></div>
       <div class="tot"><span>Total</span><span id="total">0 $</span></div>
-      <input id="cname" placeholder="Votre nom (facultatif)">
-      <button class="btn mail" id="sendMail">Envoyer par courriel</button>
-      <button class="btn fb" id="sendFb">Copier et envoyer sur Messenger</button>
-      <p class="note">Aucun paiement en ligne : nous vous répondons pour confirmer la disponibilité et convenir du paiement et de la cueillette.</p>
+      <div class="minwarn" id="minwarn" hidden></div>
+      <label class="fld"><span>Votre nom <em>*</em></span><input id="cname" autocomplete="name" placeholder="Prénom et nom"></label>
+      <fieldset class="loc"><legend>Lieu de collecte <em>*</em></legend><div id="locs"></div></fieldset>
+      <div class="blocker" id="blocker" hidden></div>
+      <button class="btn mail" id="copyOrder">Copier la commande pour envoi</button>
+      <button class="btn fb" id="sendFb">Copier la commande et l'envoyer à notre page Facebook</button>
+      <p class="note">Aucun paiement en ligne : nous vous répondons pour confirmer la disponibilité et convenir du paiement et du rendez-vous.</p>
     </div>
   </aside>
 </div>
@@ -543,8 +568,10 @@ function renderCats(){
   const hot=[];
   CATS.forEach(c=>{ const cf=CONFIG.CATEGORIES.find(x=>x.label===c.label)||{}; const t={k:c.label,label:(cf.icon?cf.icon+" ":"")+c.label,n:c.n,cls:cf.hot?"hot":""}; (cf.hot?hot:tabs).push(t); });
   STYLE_TABS.forEach(t=>{ const n=ALL.filter(i=>inStyleTab(i,t)).length; if(n) tabs.push({k:t.key,label:t.label,n}); });
-  tabs.push(...hot);                 // l'onglet Aubaines en dernier
-  $("#cats").innerHTML=tabs.map(t=>`<button class="cat ${t.cls||""} ${!query&&cat===t.k?"on":""}" data-cat="${esc(t.k)}">${esc(t.label)}<small>${t.n}</small></button>`).join("");
+  const btn=t=>`<button class="cat ${t.cls||""} ${!query&&cat===t.k?"on":""}" data-cat="${esc(t.k)}">${esc(t.label)}<small>${t.n}</small></button>`;
+  $("#cats").innerHTML=tabs.map(btn).join("");
+  $("#cats2").innerHTML=hot.map(btn).join("");   // l'onglet Aubaines sur sa propre ligne, sous les catégories
+  $("#cats2").hidden=!hot.length;
 }
 function renderChips(base){
   const counts={};
@@ -768,13 +795,43 @@ function renderCart(){
   if(p.cur){ $("#discLbl").textContent=`Rabais ${p.cur.pct} %`; $("#discAmt").textContent="− "+money(p.disc); }
   $("#total").textContent=money(p.total);
   renderTiers(sub);
-  $("#sendMail").disabled=$("#sendFb").disabled=!avail.length;
+  renderCheckout();
   $("#items").innerHTML=items.length? items.map(i=>`<div class="it">
       ${i.img?`<img src="${esc(i.img)}" alt="" referrerpolicy="no-referrer">`:'<div class="mini"></div>'}
       <div><div class="c">${esc(i.code)}</div><div class="t">${esc(i.artist)} — ${esc(i.title)}</div>${i.gone?'<div class="gone">Plus disponible</div>':""}</div>
       <div class="p">${esc(i.priceTxt)}<br><button class="rm" data-rm="${esc(i.code)}">retirer</button></div></div>`).join("")
     : '<div class="empty">Votre sélection est vide.<br>Cliquez sur une pochette pour l\'ajouter.</div>';
 }
+// ---------- Collecte / livraison ----------
+const SHIP="__ship";
+let loc = store.get("vinyl-loc") || "";
+function cartTotal(){ const a=Object.values(cart).filter(i=>!i.gone); return {n:a.length, ...pricing(r2(a.reduce((s,i)=>s+(i.price||0),0)))}; }
+function renderCheckout(){
+  const c=cartTotal(), shipOk=c.total>=CONFIG.SHIP_MIN;
+  if(loc===SHIP && !shipOk) loc="";
+  // avertissement du minimum
+  const w=$("#minwarn");
+  w.hidden=!(c.n && c.total<CONFIG.MIN_ORDER);
+  if(!w.hidden) w.innerHTML=`<b>Commande minimum de ${money(CONFIG.MIN_ORDER)} pour une collecte</b>Ajoutez encore <b style="display:inline">${money(r2(CONFIG.MIN_ORDER-c.total))}</b> de disques pour pouvoir prendre rendez-vous. Jetez un œil à nos 🔥 aubaines à partir de 3 $!`;
+  // choix du lieu
+  const opts=CONFIG.PICKUP.map(l=>({v:l,label:"Collecte à "+l}));
+  opts.push({v:SHIP,label:"Livraison",dis:!shipOk,
+    note: shipOk ? "Frais de livraison à discuter selon la commande et la destination." : `Offerte pour les commandes de ${money(CONFIG.SHIP_MIN)} et plus (il manque ${money(r2(CONFIG.SHIP_MIN-c.total))}).`});
+  $("#locs").innerHTML=opts.map(o=>`<label class="opt ${o.dis?"dis":""}"><input type="radio" name="loc" value="${esc(o.v)}" ${loc===o.v?"checked":""} ${o.dis?"disabled":""}><span>${esc(o.label)}${o.note?`<small>${esc(o.note)}</small>`:""}</span></label>`).join("");
+  // ce qui bloque l'envoi
+  const name=$("#cname").value.trim();
+  const why = !c.n ? "Votre sélection est vide."
+    : c.total<CONFIG.MIN_ORDER ? `Minimum de ${money(CONFIG.MIN_ORDER)} pour envoyer la commande.`
+    : !name ? "Écrivez votre nom pour envoyer la commande."
+    : !loc ? "Choisissez le lieu de collecte pour envoyer la commande."
+    : "";
+  $("#blocker").hidden=!why; $("#blocker").textContent=why;
+  $("#copyOrder").disabled=$("#sendFb").disabled=!!why;
+}
+$("#cname").value=store.get("vinyl-name")||"";
+$("#cname").addEventListener("input",()=>{ store.set("vinyl-name",$("#cname").value); renderCheckout(); });
+$("#locs").addEventListener("change",e=>{ if(e.target.name==="loc"){ loc=e.target.value; store.set("vinyl-loc",loc); renderCheckout(); } });
+
 function orderText(){
   const items=Object.values(cart).filter(i=>!i.gone);
   const p=pricing(r2(items.reduce((s,i)=>s+(i.price||0),0)));
@@ -783,17 +840,22 @@ function orderText(){
     items.map(i=>`${i.code} — ${i.artist} — ${i.title} (${i.priceTxt})`).join("\n")+
     `\n\nNuméros : ${items.map(i=>i.code).join(", ")}`+
     (p.cur?`\nSous-total : ${money(p.sub)}\nRabais ${p.cur.pct} % : − ${money(p.disc)}`:"")+
-    `\nTotal : ${money(p.total)}`+(name?`\n\n${name}`:"");
+    `\nTotal : ${money(p.total)}`+
+    `\n\n${loc===SHIP ? "Livraison (frais à discuter selon la commande et la destination)" : "Collecte à "+loc}`+
+    `\nNom : ${name}`;
 }
-$("#sendMail").onclick=()=>{
-  const codes=Object.values(cart).filter(i=>!i.gone).map(i=>i.code).join(", ");
-  location.href=`mailto:${CONFIG.EMAIL}?subject=${encodeURIComponent("Commande vinyles — "+codes)}&body=${encodeURIComponent(orderText())}`;
-};
-$("#sendFb").onclick=async()=>{
+async function copyOrder(msg){
   const t=orderText();
-  try{ await navigator.clipboard.writeText(t); toast("Liste copiée! Collez-la dans Messenger."); }
-  catch(e){ prompt("Copiez ce texte et collez-le dans Messenger :", t); }
-  setTimeout(()=>window.open(CONFIG.MESSENGER,"_blank","noopener"),600);
+  try{ await navigator.clipboard.writeText(t); toast(msg); return true; }
+  catch(e){ prompt("Copiez ce texte :", t); return true; }
+}
+$("#copyOrder").onclick=()=>copyOrder("Commande copiée! Collez-la dans votre conversation avec nous.");
+$("#sendFb").onclick=async()=>{
+  // ouvrir la fenêtre tout de suite (sinon le navigateur du cellulaire peut la bloquer)
+  const w=window.open(CONFIG.MESSENGER,"_blank");
+  if(w) w.opener=null;
+  await copyOrder("Commande copiée! Collez-la dans la conversation Messenger.");
+  if(!w) location.href=CONFIG.MESSENGER;
 };
 let tt; function toast(m){ const el=$("#toast"); el.textContent=m; el.classList.add("on"); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove("on"),1800); }
 
