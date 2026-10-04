@@ -52,7 +52,10 @@ const CONFIG = {
   MIN_ORDER: 25,       // commande minimum pour prendre rendez-vous
   SHIP_MIN: 150,       // livraison offerte à partir de ce montant
   PICKUP: ["Saint-Jean-sur-Richelieu", "Vieux-Rosemont (Montréal)"],
-  NEW_DAYS: 30,        // un disque est une « nouveauté » pendant ce nombre de jours
+  // Nouveautés : les 4 derniers arrivages du dimanche 19 h 30.
+  // Le dernier arrivage en premier (par ordre d'ajout), puis les 3 précédents ensemble, de A à Z.
+  NEW_WEEKS: 4,
+  PUB_DAY: 0, PUB_HOUR: 19, PUB_MIN: 30,   // 0 = dimanche
   STORE_NAME: "Disques en gros du Vieux-Rosemont / Saint-Jean",
   EMAIL: "samuelcaron92@hotmail.com",
   MESSENGER: "https://m.me/DisquesVieuxRosemont",
@@ -465,12 +468,21 @@ function normYear(s){
 }
 function parseDate(s){
   s=clean(s); if(!s) return 0;
-  let m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(m) return new Date(+m[1],+m[2]-1,+m[3]).getTime();
+  let m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]+(\d{1,2}):(\d{2}))?/);
+  // date sans heure : on la considère publiée à 19 h 30 ce jour-là
+  if(m) return new Date(+m[1],+m[2]-1,+m[3],m[4]!=null?+m[4]:CONFIG.PUB_HOUR,m[4]!=null?+m[5]:CONFIG.PUB_MIN).getTime();
   m=s.match(/(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})/);   // jj/mm/aaaa
   if(m){ const y=+m[3]<100?2000+ +m[3]:+m[3]; return new Date(y,+m[2]-1,+m[1]).getTime(); }
   const t=Date.parse(s); return isNaN(t)?0:t;
 }
+let nextPub=Infinity, pubTimer=null;
+/** Le plus récent dimanche 19 h 30 déjà passé (début de l'arrivage en cours). */
+function lastPubTime(now){
+  const d=new Date(now); d.setHours(CONFIG.PUB_HOUR,CONFIG.PUB_MIN,0,0);
+  d.setDate(d.getDate()-((d.getDay()-CONFIG.PUB_DAY+7)%7));
+  if(d.getTime()>now) d.setDate(d.getDate()-7);
+  return d.getTime();
+}   // prochaine publication programmée (disques encore cachés)
 function buildItems(rows, catLabel, cf={}){
   const hi=rows.findIndex(r=>r.some(c=>/titre|album/i.test(c)) && r.some(c=>/prix|artiste/i.test(c)));
   const H=(hi>=0?rows[hi]:[]).map(h=>clean(h).toLowerCase());
@@ -483,7 +495,7 @@ function buildItems(rows, catLabel, cf={}){
     country:find(/pays/,13), year:find(/ann[ée]e/,14), notes:find(/comment/,15),
     photo:find(/^photo/,-1), status:find(/r[ée]serv|statut|vendu/,-1), added:find(/ajout/,-1)
   };
-  const now=Date.now(), newMs=CONFIG.NEW_DAYS*864e5;
+  const now=Date.now(), lastPub=lastPubTime(now), firstNew=lastPub-(CONFIG.NEW_WEEKS-1)*7*864e5-36e5;
   const out=[];
   for(const r of rows){
     const code=clean(r[col.code]);
@@ -494,6 +506,7 @@ function buildItems(rows, catLabel, cf={}){
     const notes=clean(r[col.notes]);
     const photo=col.photo>=0?clean(r[col.photo]):"";
     const added=col.added>=0?parseDate(r[col.added]):0;
+    if(added && added>now){ nextPub=Math.min(nextPub,added); continue; }  // programmé pour plus tard : caché jusque-là
     // Genre et styles Discogs (remplis par le script) ; sinon la colonne « Style de musique » de la liste
     const dlist = c => c<0 ? [] : String(r[c]||"").split("|").map(x=>x.trim()).filter(x=>x && x!=="-");
     const dg=dlist(col.dgenre), ds=dlist(col.dstyles);
@@ -513,7 +526,8 @@ function buildItems(rows, catLabel, cf={}){
       matchTxt: fold((fromDiscogs ? [...dg, ...ds] : own).join(" / ")), country: clean(r[col.country]),
       year: normYear(r[col.year]), notes,
       photo: /^https?:\/\//i.test(photo) ? photo : "",
-      added, isNew: !!added && now-added <= newMs && added <= now+864e5,
+      added, isNew: !!added && added >= firstNew,
+      isWeek: !!added && added >= lastPub,
       reserved: /r[ée]serv|vendu/i.test(status) || /^r[ée]serv/i.test(notes)
     });
   }
@@ -523,6 +537,7 @@ async function load(first){
   const res=await Promise.allSettled(CONFIG.CATEGORIES.map(loadTab));
   // Google renvoie le PREMIER onglet quand un nom n'existe pas. Quand deux catégories reçoivent
   // les mêmes disques, on garde celle dont le nom figure dans la case A1 de l'onglet reçu.
+  nextPub=Infinity;
   const got=res.map((r,idx)=>{
     const c=CONFIG.CATEGORIES[idx];
     if(r.status!=="fulfilled"){ console.warn("Onglet non chargé :", c.label, r.reason); return null; }
@@ -544,6 +559,9 @@ async function load(first){
     if(first) $("#main").innerHTML=`<div class="status">Impossible de charger la liste pour le moment. Vérifiez que la Google Sheet est partagée « Tous les utilisateurs disposant du lien — Lecteur », puis rechargez la page.</div>`;
     return;
   }
+  // à l'heure de la prochaine publication (dimanche 19 h 30), relire la liste automatiquement
+  clearTimeout(pubTimer);
+  if(nextPub<Infinity){ const wait=nextPub-Date.now()+20000; if(wait<2e9) pubTimer=setTimeout(()=>load(false), Math.max(wait,1000)); }
   // rien n'a changé depuis la dernière lecture : on ne redessine pas (garde la position de défilement)
   const sig=items.map(i=>[i.code,i.price,i.added,i.photo,i.reserved,i.disc,i.sleeve].join("~")).join("|");
   if(!first && sig===lastSig) return;
@@ -669,14 +687,20 @@ function render(){
   const main=$("#main"); main.innerHTML="";
   moreIO?.disconnect();
   if(query) main.insertAdjacentHTML("beforeend",`<p class="lead">${list.length} résultat${list.length>1?"s":""} pour « ${esc(query)} » dans tout le catalogue.</p>`);
-  else if(cat==="__new") main.insertAdjacentHTML("beforeend",`<p class="lead">Les disques ajoutés dans les ${CONFIG.NEW_DAYS} derniers jours.</p>`);
+  else if(cat==="__new") main.insertAdjacentHTML("beforeend",`<p class="lead">Les disques des ${CONFIG.NEW_WEEKS} derniers arrivages. Nouveaux arrivages chaque dimanche à 19 h 30!</p>`);
   const bn=!query && CONFIG.CATEGORIES.find(c=>c.label===cat)?.banner;
   if(bn) main.insertAdjacentHTML("beforeend",`<section class="banner"><h2>${esc(bn.title)}</h2>${bn.lead?`<p class="lead2">${esc(bn.lead)}</p>`:""}<div class="pts">${(bn.points||[]).map(([t,d])=>`<div class="pt"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div></section>`);
   if(!list.length){ main.insertAdjacentHTML("beforeend",'<div class="empty">Aucun album ne correspond.</div>'); return; }
 
   // regrouper par lettre quand on trie par artiste
   entries=[];
-  if(sort==="artist"){
+  if(cat==="__new" && sort==="recent" && !query){
+    // Nouveautés : la semaine en cours par ordre d'ajout, puis les semaines précédentes de A à Z
+    const wk=list.filter(i=>i.isWeek), old=list.filter(i=>!i.isWeek)
+      .sort((a,b)=>a.artist.localeCompare(b.artist,"fr",{sensitivity:"base"})||a.title.localeCompare(b.title,"fr"));
+    if(wk.length){ entries.push({h:"Dernier arrivage",n:wk.length}); wk.forEach(i=>entries.push({i})); }
+    if(old.length){ entries.push({h:`Les ${CONFIG.NEW_WEEKS-1} arrivages précédents (A–Z)`,n:old.length}); old.forEach(i=>entries.push({i})); }
+  } else if(sort==="artist"){
     const letter=i=>{ const c=fold(i.artist).replace(/^the\s+/,"").charAt(0).toUpperCase(); return /[A-Z]/.test(c)?c:"#"; };
     const counts={}; list.forEach(i=>{ const l=letter(i); counts[l]=(counts[l]||0)+1; });
     let last=null;
