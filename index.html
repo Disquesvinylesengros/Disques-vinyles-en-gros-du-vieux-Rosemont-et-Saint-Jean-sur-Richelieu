@@ -52,9 +52,8 @@ const CONFIG = {
   MIN_ORDER: 25,       // commande minimum pour prendre rendez-vous
   SHIP_MIN: 150,       // livraison offerte à partir de ce montant
   PICKUP: ["Saint-Jean-sur-Richelieu", "Vieux-Rosemont (Montréal)"],
-  // Nouveautés : les 4 derniers arrivages du dimanche 19 h 30.
-  // Le dernier arrivage en premier (par ordre d'ajout), puis les 3 précédents ensemble, de A à Z.
-  NEW_WEEKS: 4,
+  // Nouveautés : seulement l'arrivage de la semaine (du dimanche 19 h 30 au dimanche 19 h 30 suivant), de A à Z.
+  NEW_WEEKS: 1,
   PUB_DAY: 0, PUB_HOUR: 19, PUB_MIN: 30,   // 0 = dimanche
   STORE_NAME: "Disques en gros du Vieux-Rosemont / Saint-Jean",
   EMAIL: "samuelcaron92@hotmail.com",
@@ -270,6 +269,11 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .note{font-size:12px;color:var(--muted);margin:0}
 .sumline[hidden]{display:none}
+/* option de tri « Ajouts récents » en vert */
+#sort option.opt-recent{color:#1f7a3f;font-weight:700}
+#sort.recent{background:#2f8f58;border-color:#2f8f58;color:#fff;font-weight:700}
+#sort.recent option{background:var(--paper);color:var(--ink);font-weight:400}
+#sort.recent option.opt-recent{color:#1f7a3f;font-weight:700}
 .cats2{display:flex;padding:10px 0 2px}
 .cats2[hidden]{display:none}
 .cats2 .cat.hot{margin:0}
@@ -351,7 +355,7 @@ details.guide dd{margin:0}
     <label class="search"><span aria-hidden="true">⌕</span><input id="q" type="search" placeholder="Chercher dans tout le catalogue : artiste, titre, pressing, numéro…"></label>
     <select id="sort" aria-label="Trier">
       <option value="artist">Artiste A–Z</option>
-      <option value="recent">Plus récents</option>
+      <option value="recent" class="opt-recent">● Ajouts récents</option>
       <option value="priceAsc">Prix croissant</option>
       <option value="priceDesc">Prix décroissant</option>
       <option value="year">Année de parution</option>
@@ -500,7 +504,7 @@ function buildItems(rows, catLabel, cf={}){
     country:find(/pays/,13), year:find(/ann[ée]e/,14), notes:find(/comment/,15),
     photo:find(/^photo/,-1), status:find(/r[ée]serv|statut|vendu/,-1), added:find(/ajout/,-1)
   };
-  const now=Date.now(), lastPub=lastPubTime(now), firstNew=lastPub-(CONFIG.NEW_WEEKS-1)*7*864e5-36e5;
+  const now=Date.now(), lastPub=lastPubTime(now), firstNew=lastPub-(CONFIG.NEW_WEEKS-1)*7*864e5;
   const out=[];
   for(const r of rows){
     const code=clean(r[col.code]);
@@ -685,6 +689,7 @@ function row(i){
 let entries=[], pos=0, curGrid=null, moreIO=null;
 const CHUNK=120, CHUNK_LIST=400;
 function render(){
+  $("#sort").classList.toggle("recent",sort==="recent");
   renderCats();
   const base=baseList();
   renderChips(base);
@@ -693,20 +698,14 @@ function render(){
   const main=$("#main"); main.innerHTML="";
   moreIO?.disconnect();
   if(query) main.insertAdjacentHTML("beforeend",`<p class="lead">${list.length} résultat${list.length>1?"s":""} pour « ${esc(query)} » dans tout le catalogue.</p>`);
-  else if(cat==="__new") main.insertAdjacentHTML("beforeend",`<p class="lead">Les disques des ${CONFIG.NEW_WEEKS} derniers arrivages. Nouveaux arrivages chaque dimanche à 19 h 30!</p>`);
+  else if(cat==="__new") main.insertAdjacentHTML("beforeend",`<p class="lead">L'arrivage de la semaine, en ordre alphabétique. Nouveaux arrivages chaque dimanche à 19 h 30!</p>`);
   const bn=!query && CONFIG.CATEGORIES.find(c=>c.label===cat)?.banner;
   if(bn) main.insertAdjacentHTML("beforeend",`<section class="banner"><h2>${esc(bn.title)}</h2>${bn.lead?`<p class="lead2">${esc(bn.lead)}</p>`:""}<div class="pts">${(bn.points||[]).map(([t,d])=>`<div class="pt"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div></section>`);
   if(!list.length){ main.insertAdjacentHTML("beforeend",'<div class="empty">Aucun album ne correspond.</div>'); return; }
 
   // regrouper par lettre quand on trie par artiste
   entries=[];
-  if(cat==="__new" && sort==="recent" && !query){
-    // Nouveautés : la semaine en cours par ordre d'ajout, puis les semaines précédentes de A à Z
-    const wk=list.filter(i=>i.isWeek), old=list.filter(i=>!i.isWeek)
-      .sort((a,b)=>a.artist.localeCompare(b.artist,"fr",{sensitivity:"base"})||a.title.localeCompare(b.title,"fr"));
-    if(wk.length){ entries.push({h:"Dernier arrivage",n:wk.length}); wk.forEach(i=>entries.push({i})); }
-    if(old.length){ entries.push({h:`Les ${CONFIG.NEW_WEEKS-1} arrivages précédents (A–Z)`,n:old.length}); old.forEach(i=>entries.push({i})); }
-  } else if(sort==="artist"){
+  if(sort==="artist"){
     const letter=i=>{ const c=fold(i.artist).replace(/^the\s+/,"").charAt(0).toUpperCase(); return /[A-Z]/.test(c)?c:"#"; };
     const counts={}; list.forEach(i=>{ const l=letter(i); counts[l]=(counts[l]||0)+1; });
     let last=null;
@@ -940,8 +939,7 @@ document.addEventListener("click",e=>{
   const ct=e.target.closest("[data-cat]");
   if(ct){
     cat=ct.dataset.cat; style="Tous"; query=""; $("#q").value="";
-    if(cat==="__new"){ sort="recent"; $("#sort").value="recent"; }
-    else if(sort==="recent" && e.isTrusted){ sort="artist"; $("#sort").value="artist"; }
+    if(cat==="__new"){ sort="artist"; $("#sort").value="artist"; }
     render(); window.scrollTo({top:$(".toolbar").offsetTop,behavior:"smooth"}); return;
   }
   const chip=e.target.closest("[data-style]"); if(chip){ style=chip.dataset.style; render(); return; }
@@ -952,6 +950,9 @@ function closeDrawer(){ $("#drawer").classList.remove("open"); $("#drawer").setA
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeDrawer(); });
 let qt; $("#q").addEventListener("input",e=>{ clearTimeout(qt); qt=setTimeout(()=>{ query=e.target.value.trim(); style="Tous"; render(); },200); });
 $("#sort").onchange=e=>{ sort=e.target.value; render(); };
+// le menu de tri devient vert quand « Ajouts récents » est choisi
+const syncSort=()=>$("#sort").classList.toggle("recent",$("#sort").value==="recent");
+$("#sort").addEventListener("change",syncSort);
 
 function syncLayout(){ document.querySelectorAll("[data-layout]").forEach(b=>{ const on=b.dataset.layout===layout; b.classList.toggle("on",on); b.setAttribute("aria-pressed",on); }); }
 syncLayout();
