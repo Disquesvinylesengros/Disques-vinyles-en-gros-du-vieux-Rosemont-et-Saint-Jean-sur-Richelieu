@@ -118,7 +118,10 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .grid.first{margin-top:18px}
 @media (max-width:480px){.grid{grid-template-columns:repeat(2,1fr);gap:12px}}
 .card{background:var(--paper);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
-.card.reserved{opacity:.55}
+.card.reserved{box-shadow:0 0 0 3px var(--t1),var(--shadow);cursor:not-allowed}
+.card.reserved .cover img,.card.reserved .cover .ph{filter:grayscale(.45) brightness(.8)}
+.resband{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);z-index:3;background:var(--t1);color:#1c1a17;text-align:center;font:800 17px/1 Inter,sans-serif;letter-spacing:.18em;padding:10px 0;box-shadow:0 2px 10px rgba(0,0,0,.35);pointer-events:none}
+.card.reserved .resv{color:#c25a00}
 .card{cursor:pointer;transition:box-shadow .15s,transform .15s;-webkit-tap-highlight-color:transparent}
 @media (hover:hover){.card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(0,0,0,.08),0 10px 24px rgba(0,0,0,.12)}}
 .card.in{box-shadow:0 0 0 3px var(--ok),var(--shadow)}
@@ -167,7 +170,9 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .list.first{margin-top:14px}
 .lrow{display:grid;grid-template-columns:1fr 56px;border-bottom:1px solid var(--line)}
 .lrow:last-child{border-bottom:0}
-.lrow.reserved{opacity:.5}
+.lrow.reserved{box-shadow:inset 5px 0 0 var(--t1)}
+.lrow.reserved .la,.lrow.reserved .lt{opacity:.7}
+.lm .tag.v{background:var(--t1)!important;color:#1c1a17!important}
 .lrow.in{background:color-mix(in srgb,var(--ok) 10%,var(--paper))}
 .lmain{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 4px 10px 14px;min-width:0}
 .lmain:focus-visible{outline:2px solid var(--red);outline-offset:-2px}
@@ -515,7 +520,7 @@ function buildItems(rows, catLabel, cf={}){
     const st = fromDiscogs ? (ds.length ? ds : dg) : own;
     out.push({
       code: code.replace(/\s+/g,""), num: parseInt(code.replace(/^\D+/,""),10)||0, cat: catLabel,
-      rare: !cf.qtyInColB && /rare/i.test(r[col.rare]||""),
+      rare: !cf.qtyInColB && /rare/i.test(r[col.rare]||"") && !/r[ée]serv/i.test(r[col.rare]||""),
       qty: cf.qtyInColB ? (parseInt(r[col.rare],10)||0) : 0,
       artist: clean(r[col.artist]) || "Artiste inconnu",
       title: clean(r[col.title]),
@@ -528,7 +533,7 @@ function buildItems(rows, catLabel, cf={}){
       photo: /^https?:\/\//i.test(photo) ? photo : "",
       added, isNew: !!added && added >= firstNew,
       isWeek: !!added && added >= lastPub,
-      reserved: /r[ée]serv|vendu/i.test(status) || /^r[ée]serv/i.test(notes)
+      reserved: /r[ée]serv/i.test(r[col.rare]||"") || /r[ée]serv|vendu/i.test(status) || /^r[ée]serv/i.test(notes)
     });
   }
   return out;
@@ -638,6 +643,7 @@ function card(i){
     <div class="cover">
       ${img?`<img src="${esc(img)}" alt="${esc(i.artist+" – "+i.title)}" loading="lazy" referrerpolicy="no-referrer">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
       <span class="code">${esc(i.code)}</span>
+      ${i.reserved?'<span class="resband">RÉSERVÉ</span>':""}
       <span class="badges">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
       <dl class="info">
         ${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Genre",i.genreTxt)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}
