@@ -404,18 +404,41 @@ details.guide dd{margin:0}
 <div class="toast" id="toast"></div>
 
 <script>
-/* Pochettes : passent par un service gratuit de cache/redimensionnement (wsrv.nl), ce qui évite que
-   Discogs refuse des images quand un visiteur en charge des centaines. En cas d'échec : nouvel essai
-   direct chez Discogs quelques secondes plus tard, puis le disque stylisé. */
+/* Chargement des pochettes
+   - quelques images à la fois, quand elles approchent de l'écran (Discogs refuse les rafales)
+   - d'abord via un service de cache (wsrv.nl) ; s'il ne fonctionne pas, directement chez Discogs
+   - en cas d'échec : nouveaux essais avec des pauses de plus en plus longues, puis à nouveau
+     quand la pochette revient à l'écran. Pendant ce temps, le disque stylisé reste visible. */
+const IMG={max:4,active:0,queue:[],proxy:true,proxyOk:0,proxyKo:0};
 function viaCache(url,w){
   if(!/^https?:\/\//i.test(url)) return url;
   return "https://wsrv.nl/?url="+encodeURIComponent(url.replace(/^https?:\/\//i,""))+"&w="+w+"&h="+w+"&fit=cover&output=jpg&q=80";
 }
-function imgFail(im){
-  const n=+(im.dataset.try||0)+1; im.dataset.try=n;
-  if(n<=3){ setTimeout(()=>{ im.src = n===1 ? im.dataset.orig : im.dataset.orig+(im.dataset.orig.includes("?")?"&":"?")+"r="+n; }, n*1500+Math.random()*2500); }
-  else im.remove();   // le disque stylisé en dessous reste visible
+function imgQueue(im){ if(im.dataset.state==="ok"||im.dataset.state==="wait"||im.dataset.state==="load") return; im.dataset.state="wait"; IMG.queue.push(im); imgPump(); }
+function imgPump(){
+  while(IMG.active<IMG.max && IMG.queue.length){
+    const im=IMG.queue.shift();
+    if(!im.isConnected){ continue; }
+    IMG.active++; im.dataset.state="load";
+    const n=+(im.dataset.try||0), useProxy=IMG.proxy && n<2;
+    const url = useProxy ? viaCache(im.dataset.orig, +(im.dataset.w||400)) : im.dataset.orig+(n>2?(im.dataset.orig.includes("?")?"&":"?")+"r="+n:"");
+    const t=new Image(); t.referrerPolicy="no-referrer";
+    const done=ok=>{
+      IMG.active--;
+      if(useProxy){ ok?IMG.proxyOk++:IMG.proxyKo++; if(!IMG.proxyOk && IMG.proxyKo>=6) IMG.proxy=false; }
+      if(ok){ im.src=url; im.dataset.state="ok"; im.classList.add("ok"); }
+      else{
+        const k=n+1; im.dataset.try=k;
+        if(k<7){ im.dataset.state="retry"; setTimeout(()=>{ im.dataset.state=""; imgQueue(im); }, Math.min(30000,1000*2**k)+Math.random()*1500); }
+        else { im.dataset.state="failed"; im.dataset.try=2; }   // réessayé quand la pochette revient à l'écran
+      }
+      setTimeout(imgPump, ok?0:300);
+    };
+    t.onload=()=>done(true); t.onerror=()=>done(false); t.src=url;
+  }
 }
+const imgIO=("IntersectionObserver" in window) ? new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ const im=e.target; if(im.dataset.state==="failed") im.dataset.state=""; imgQueue(im); } }),{rootMargin:"600px"}) : null;
+function imgWatch(root){ (root||document).querySelectorAll("img.lz:not([data-watch])").forEach(im=>{ im.dataset.watch=1; imgIO?imgIO.observe(im):imgQueue(im); }); }
 </script>
 <script>
 (() => {
@@ -698,7 +721,7 @@ function card(i){
   const addedTxt=i.added?new Date(i.added).toLocaleDateString("fr-CA",{day:"numeric",month:"long",year:"numeric"}):"";
   return `<article class="card ${inCart?"in":""} ${i.reserved?"reserved":""}" data-code="${esc(key)}" data-add="${esc(key)}" title="${i.reserved?"Réservé":"Cliquer pour ajouter à ma sélection"}">
     <div class="cover">
-      ${img?`<div class="ph"><span>${esc(i.artist)}</span></div><img src="${esc(viaCache(img,400))}" data-orig="${esc(img)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="imgFail(this)" onload="this.classList.add('ok')">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
+      ${img?`<div class="ph"><span>${esc(i.artist)}</span></div><img class="lz" data-orig="${esc(img)}" data-w="400" alt="" decoding="async" referrerpolicy="no-referrer">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
       <span class="code">${esc(i.code)}</span>
       ${i.reserved?'<span class="resband">RÉSERVÉ</span>':""}
       <span class="badges">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
@@ -789,6 +812,7 @@ function renderMore(){
     } else { buf+=(box==="list"?row(e.i):card(e.i)); shown++; }
   }
   flush();
+  imgWatch(main);
   observeCovers();
   if(pos<entries.length){
     const s=document.createElement("div"); s.className="sentinel"; main.appendChild(s);
@@ -917,10 +941,11 @@ function renderCart(){
   renderTiers(sub);
   renderCheckout();
   $("#items").innerHTML=items.length? items.map(i=>`<div class="it">
-      ${i.img?`<img src="${esc(viaCache(i.img,120))}" data-orig="${esc(i.img)}" alt="" referrerpolicy="no-referrer" onerror="imgFail(this)">`:'<div class="mini"></div>'}
+      ${i.img?`<img class="lz" data-orig="${esc(i.img)}" data-w="120" alt="" referrerpolicy="no-referrer">`:'<div class="mini"></div>'}
       <div><div class="c">${esc(i.code)}</div><div class="t">${esc(i.artist)} — ${esc(i.title)}</div>${i.gone?'<div class="gone">Plus disponible</div>':""}</div>
       <div class="p">${esc(i.priceTxt)}<br><button class="rm" data-rm="${esc(i.code)}">retirer</button></div></div>`).join("")
     : '<div class="empty">Votre sélection est vide.<br>Cliquez sur une pochette pour l\'ajouter.</div>';
+  imgWatch($("#items"));
 }
 // ---------- Collecte / livraison ----------
 const SHIP="__ship";
