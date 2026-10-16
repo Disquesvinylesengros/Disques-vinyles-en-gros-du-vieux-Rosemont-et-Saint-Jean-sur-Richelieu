@@ -165,6 +165,12 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .row{display:flex;justify-content:space-between;align-items:flex-end;gap:6px;margin-top:auto;padding-top:6px}
 .price{font:700 18px Fraunces,Georgia,serif}
 .grades{display:flex;flex-direction:column;gap:2px;font-size:11px;text-align:right}
+/* états au-dessus, prix en dessous sur toute la largeur : rien n'est coupé, même en 2 colonnes sur cellulaire */
+.meta .row{flex-wrap:wrap;align-items:center}
+.meta .row .grades{order:-1;flex-basis:100%;flex-direction:row;flex-wrap:wrap;justify-content:flex-start;gap:4px 10px}
+.meta .row .g{justify-content:flex-start}
+.meta .row .g b{white-space:nowrap}
+.meta .row .price{flex-basis:100%}
 .g{display:inline-flex;gap:4px;align-items:center;justify-content:flex-end}
 .g i{font-style:normal;color:var(--muted)}
 .g b{font-weight:600;padding:1px 6px;border-radius:4px;background:var(--line)}
