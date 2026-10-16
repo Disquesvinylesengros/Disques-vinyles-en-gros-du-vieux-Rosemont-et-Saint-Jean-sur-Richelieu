@@ -40,6 +40,16 @@ const CONFIG = {
     { min: 100, pct: 15 },
     { min: 200, pct: 20 }
   ],
+  // Solde temporaire : remplace les rabais par palier pendant la période (heure de Montréal).
+  // Pour l'enlever plus tôt : mettez « on: false ». Après la date de fin, tout revient automatiquement.
+  SALE: {
+    on: true,
+    pct: 25,
+    start: "2026-10-16T00:00:00-04:00",
+    end:   "2026-10-26T00:00:00-04:00",   // fin : dimanche 25 octobre à 23 h 59
+    title: "Solde de lancement du site web",
+    until: "jusqu'au dimanche 25 octobre"
+  },
   // Onglets par style : regroupent les disques de la liste principale (Anglo, Franco, Jazz…)
   // dont la colonne « Style de musique » contient un de ces mots.
   STYLE_TABS: [
@@ -230,6 +240,25 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .promo-in .t.tc1{padding:6px 16px}.promo-in .t.tc1 b{font-size:20px}
 .promo-in .t.tc2{padding:7px 18px;box-shadow:0 0 14px rgba(232,35,27,.75)}.promo-in .t.tc2 b{font-size:23px}
 .promo-in .s{font-size:13px;color:#cfc6b8;flex-basis:100%}
+.price,.now,.lp{white-space:nowrap}
+.was{text-decoration:line-through;text-decoration-color:#e8231b;text-decoration-thickness:2px;color:var(--muted);font-weight:600;font-size:.78em;margin-right:6px}
+.now{color:#e8231b}
+.lp .was{display:inline}
+.it .p .was{display:block;margin:0;font-size:12px}
+.promo.sale{background:#e8231b}
+.promo.sale .promo-in{gap:8px 18px}
+.promo-in .sl{display:flex;flex-direction:column;align-items:center;gap:2px}
+.promo-in .sl .k{font:700 13px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#ffe9a8}
+.promo-in .sl .big{font:800 clamp(30px,5.5vw,52px)/1 Fraunces,Georgia,serif;color:#fff}
+.promo-in .sl .big em{font-style:normal;background:#ffd23f;color:#1c1a17;border-radius:10px;padding:0 12px;margin-right:8px;display:inline-block}
+.promo-in .sl .u{font:600 15px Inter,sans-serif}
+.promo-in .old{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:center;font-size:13px;color:#fff;background:rgba(28,26,23,.55);border-radius:12px;padding:7px 14px;margin-top:4px}
+.promo-in .old .ts{gap:6px}
+.promo-in .old .t{position:relative;padding:3px 10px;font-size:12px;box-shadow:none!important;opacity:.85}
+.promo-in .old .t.tc2::after{background:#1c1a17}
+.promo-in .old .t::after{content:"";position:absolute;left:4px;right:4px;top:50%;height:2px;margin-top:-1px;background:#ff2a1f;border-radius:2px}
+.promo-in .old .t b{font-size:14px!important}
+@media (max-width:640px){.promo-in .old{font-size:11px;padding:6px 8px;gap:4px 6px}.promo-in .old .ts{flex-wrap:nowrap;gap:4px}.promo-in .old .t{padding:2px 6px;font-size:10.5px}.promo-in .old .t b{font-size:12px!important}.promo-in .old .xs{display:none}.promo-in .sl .u{font-size:13px}}
 .tiers{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;background:var(--bg)}
 .tiers .msg{font-size:14px;font-weight:600}
 .tiers .msg.ok{color:var(--ok)}
@@ -736,7 +765,7 @@ function card(i){
       <div class="artist">${esc(i.artist)}</div>
       <div class="title">${esc(i.title)}</div>
       ${i.reserved?'<div class="resv">Réservé</div>':""}
-      <div class="row"><span class="price">${esc(i.priceTxt)}</span>
+      <div class="row"><span class="price">${priceHTML(i)}</span>
         ${(i.disc||i.sleeve)?`<span class="grades"><span class="g"><i>Disque</i><b class="l${gradeLevel(i.disc)}">${esc(i.disc||"–")}</b></span><span class="g"><i>Pochette</i><b class="l${gradeLevel(i.sleeve)}">${esc(i.sleeve||"–")}</b></span></span>`:`<span class="grades"><span class="g"><i>État</i><b>VG- à VG+</b></span></span>`}
       </div>
     </div></article>`;
@@ -749,7 +778,7 @@ function row(i){
   const addedTxt=i.added?new Date(i.added).toLocaleDateString("fr-CA",{day:"numeric",month:"long",year:"numeric"}):"";
   return `<article class="lrow ${inCart?"in":""} ${i.reserved?"reserved":""}" data-code="${esc(i.code)}">
     <button class="lmain" data-expand aria-expanded="false">
-      <span class="la">${esc(i.artist)}</span><span class="lp">${esc(i.priceTxt)}</span>
+      <span class="la">${esc(i.artist)}</span><span class="lp">${priceHTML(i)}</span>
       <span class="lt">${esc(i.title)}</span>
       <span class="lm"><span class="lc">${esc(i.code)}</span>
         ${(i.disc||i.sleeve)?g("Disque",i.disc)+g("Poch.",i.sleeve):`<span class="g"><i>État</i><b>VG- à VG+</b></span>`}
@@ -895,6 +924,23 @@ function toggle(code){
 // ---------- Rabais ----------
 const TIERS=(CONFIG.DISCOUNTS||[]).slice().sort((a,b)=>a.min-b.min);
 const r2=n=>Math.round(n*100)/100;
+const SALE=CONFIG.SALE||{};
+function saleOn(){
+  if(!SALE.on||!SALE.pct) return false;
+  const now=Date.now();
+  return (!SALE.start||now>=Date.parse(SALE.start)) && (!SALE.end||now<Date.parse(SALE.end));
+}
+// prix après solde (arrondi au cent), ou prix normal hors solde
+const salePrice=n=>saleOn()&&n>0 ? r2(n*(100-SALE.pct)/100) : n;
+// affichage du prix : régulier barré + prix soldé
+const priceHTML=i=>saleOn()&&i.price>0 ? `<s class="was">${esc(i.priceTxt)}</s><span class="now">${money(salePrice(i.price))}</span>` : esc(i.priceTxt);
+// sous-total régulier + total (le solde se calcule disque par disque, comme affiché)
+function priceItems(list){
+  const sub=r2(list.reduce((s,i)=>s+(i.price||0),0));
+  if(!saleOn()) return pricing(sub);
+  const total=r2(list.reduce((s,i)=>s+salePrice(i.price||0),0));
+  return {sub,cur:{pct:SALE.pct,sale:true},next:null,disc:r2(sub-total),total};
+}
 function pricing(sub){
   const cur=[...TIERS].reverse().find(t=>sub>=t.min)||null;
   const next=TIERS.find(t=>sub<t.min)||null;
@@ -905,6 +951,16 @@ function pricing(sub){
 const tc = k => TIERS.length<2 ? 2 : Math.round(k*2/(TIERS.length-1));
 const TCOL = ["var(--t0)","var(--t1)","var(--t2)"];
 function renderPromo(){
+  const tiersHTML=`<span class="ts">${TIERS.map((t,k)=>`<span class="t tc${tc(k)}"><b>-${t.pct} %</b> dès ${money(t.min)}</span>`).join("")}</span>`;
+  $("#promoWrap").classList.toggle("sale",saleOn());
+  if(saleOn()){
+    $("#promoWrap").hidden=false;
+    $("#promo").innerHTML=`<span class="sl"><span class="k">${esc(SALE.title)}</span>`+
+      `<span class="big"><em>-${SALE.pct} %</em>sur tout le site</span>`+
+      `<span class="u">${esc(SALE.until)} · le prix soldé est affiché sous chaque disque</span></span>`+
+      (TIERS.length?`<span class="old"><span>Rabais habituels :</span>${tiersHTML}<span class="xs">suspendus pendant le solde, de retour ensuite.</span></span>`:"");
+    return;
+  }
   if(!TIERS.length){ $("#promoWrap").hidden=true; return; }
   $("#promo").innerHTML=`<span class="h">Plus vous en prenez, <em>moins vous payez!</em></span>`+
     `<span class="ts">${TIERS.map((t,k)=>`<span class="t tc${tc(k)}"><b>-${t.pct} %</b> dès ${money(t.min)}</span>`).join("")}</span>`+
@@ -912,6 +968,7 @@ function renderPromo(){
 }
 function renderTiers(sub){
   const el=$("#tiers");
+  if(saleOn()){ el.hidden=false; el.innerHTML=`<div class="msg m2">🔥🔥🔥 ${esc(SALE.title)} : -${SALE.pct} % appliqué sur chaque disque, ${esc(SALE.until)}.</div>`; return; }
   if(!TIERS.length){ el.hidden=true; return; }
   const p=pricing(sub), max=TIERS[TIERS.length-1].min;
   const msg = !sub ? `Rabais de ${TIERS[0].pct} % dès ${money(TIERS[0].min)} d'achat.`
@@ -925,32 +982,31 @@ function renderTiers(sub){
 function renderCart(){
   const items=Object.values(cart);
   const avail=items.filter(i=>!i.gone);
-  const sub=r2(avail.reduce((s,i)=>s+(i.price||0),0));
-  const p=pricing(sub);
+  const p=priceItems(avail), sub=p.sub;
   $("#fabN").textContent=items.length;
   $("#fabT").textContent=items.length?money(p.total):"";
-  const ci=p.cur?TIERS.indexOf(p.cur):-1, fp=$("#fabP");
+  const ci=p.cur?(p.cur.sale?TIERS.length-1:TIERS.indexOf(p.cur)):-1, fp=$("#fabP");
   fp.textContent=p.cur?`-${p.cur.pct} %`:"";
   fp.className="pct"+(ci>=0?" tc"+tc(ci):"");
   if(ci>lastTier && lastTier!==null){ void fp.offsetWidth; fp.classList.add("pop"); }
   lastTier=ci;
   $("#subtotal").textContent=money(sub);
   $("#discLine").hidden=!p.cur;
-  if(p.cur){ $("#discLbl").textContent=`Rabais ${p.cur.pct} %`; $("#discAmt").textContent="− "+money(p.disc); }
+  if(p.cur){ $("#discLbl").textContent=p.cur.sale?`${SALE.title} -${p.cur.pct} %`:`Rabais ${p.cur.pct} %`; $("#discAmt").textContent="− "+money(p.disc); }
   $("#total").textContent=money(p.total);
   renderTiers(sub);
   renderCheckout();
   $("#items").innerHTML=items.length? items.map(i=>`<div class="it">
       ${i.img?`<img class="lz" data-orig="${esc(i.img)}" data-w="120" alt="" referrerpolicy="no-referrer">`:'<div class="mini"></div>'}
       <div><div class="c">${esc(i.code)}</div><div class="t">${esc(i.artist)} — ${esc(i.title)}</div>${i.gone?'<div class="gone">Plus disponible</div>':""}</div>
-      <div class="p">${esc(i.priceTxt)}<br><button class="rm" data-rm="${esc(i.code)}">retirer</button></div></div>`).join("")
+      <div class="p">${priceHTML(i)}<br><button class="rm" data-rm="${esc(i.code)}">retirer</button></div></div>`).join("")
     : '<div class="empty">Votre sélection est vide.<br>Cliquez sur une pochette pour l\'ajouter.</div>';
   imgWatch($("#items"));
 }
 // ---------- Collecte / livraison ----------
 const SHIP="__ship";
 let loc = store.get("vinyl-loc") || "";
-function cartTotal(){ const a=Object.values(cart).filter(i=>!i.gone); return {n:a.length, ...pricing(r2(a.reduce((s,i)=>s+(i.price||0),0)))}; }
+function cartTotal(){ const a=Object.values(cart).filter(i=>!i.gone); return {n:a.length, ...priceItems(a)}; }
 function renderCheckout(){
   const c=cartTotal(), shipOk=c.total>=CONFIG.SHIP_MIN;
   if(loc===SHIP && !shipOk) loc="";
@@ -979,12 +1035,12 @@ $("#locs").addEventListener("change",e=>{ if(e.target.name==="loc"){ loc=e.targe
 
 function orderText(){
   const items=Object.values(cart).filter(i=>!i.gone);
-  const p=pricing(r2(items.reduce((s,i)=>s+(i.price||0),0)));
+  const p=priceItems(items);
   const name=$("#cname").value.trim();
   return `Bonjour! J'aimerais réserver ces vinyles :\n\n`+
-    items.map(i=>`${i.code} — ${i.artist} — ${i.title} (${i.priceTxt})`).join("\n")+
+    items.map(i=>`${i.code} — ${i.artist} — ${i.title} (${saleOn()&&i.price>0?`${money(salePrice(i.price))} au lieu de ${i.priceTxt}`:i.priceTxt})`).join("\n")+
     `\n\nNuméros : ${items.map(i=>i.code).join(", ")}`+
-    (p.cur?`\nSous-total : ${money(p.sub)}\nRabais ${p.cur.pct} % : − ${money(p.disc)}`:"")+
+    (p.cur?`\nSous-total (prix régulier) : ${money(p.sub)}\n${p.cur.sale?`${SALE.title} -${p.cur.pct} %`:`Rabais ${p.cur.pct} %`} : − ${money(p.disc)}`:"")+
     `\nTotal : ${money(p.total)}`+
     `\n\n${loc===SHIP ? "Livraison (frais à discuter selon la commande et la destination)" : "Collecte à "+loc}`+
     `\nNom : ${name}`;
@@ -1040,6 +1096,9 @@ renderPromo();
 renderCart();
 load(true);
 setInterval(()=>load(false), CONFIG.REFRESH_MINUTES*60*1000);
+// bascule automatique au début / à la fin du solde, même si la page reste ouverte
+let saleState=saleOn();
+setInterval(()=>{ if(saleOn()!==saleState){ saleState=saleOn(); renderPromo(); render(); renderCart(); } }, 60*1000);
 })();
 </script>
 </body>
