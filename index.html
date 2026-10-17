@@ -1058,12 +1058,27 @@ async function copyOrder(msg){
   catch(e){ prompt("Copiez ce texte :", t); return true; }
 }
 $("#copyOrder").onclick=()=>copyOrder("Commande copiée! Collez-la dans votre conversation avec nous.");
-$("#sendFb").onclick=async()=>{
-  // ouvrir la fenêtre tout de suite (sinon le navigateur du cellulaire peut la bloquer)
+// Copie synchrone : fonctionne pendant le toucher, avant que la page perde le focus (iOS, Android)
+function copySync(t){
+  const ta=document.createElement("textarea");
+  ta.value=t; ta.setAttribute("readonly","");
+  ta.style.cssText="position:fixed;top:0;left:0;opacity:0;font-size:16px";
+  document.body.appendChild(ta);
+  ta.focus(); ta.select(); ta.setSelectionRange(0,t.length);
+  let ok=false; try{ ok=document.execCommand("copy"); }catch(e){}
+  ta.remove(); return ok;
+}
+$("#sendFb").onclick=()=>{
+  const t=orderText();
+  // 1) copier AVANT d'ouvrir Messenger (après, la page n'a plus le focus et la copie échoue)
+  if(!copySync(t)){
+    prompt("Copiez ce texte, puis collez-le dans Messenger :", t);
+    location.href=CONFIG.MESSENGER; return;
+  }
+  toast("Commande copiée! Collez-la dans la conversation Messenger.");
+  // 2) ouvrir Messenger dans le même geste
   const w=window.open(CONFIG.MESSENGER,"_blank");
-  if(w) w.opener=null;
-  await copyOrder("Commande copiée! Collez-la dans la conversation Messenger.");
-  if(!w) location.href=CONFIG.MESSENGER;
+  if(w) w.opener=null; else location.href=CONFIG.MESSENGER;
 };
 let tt; function toast(m){ const el=$("#toast"); el.textContent=m; el.classList.add("on"); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove("on"),1800); }
 
