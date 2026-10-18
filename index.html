@@ -641,8 +641,8 @@ function buildItems(rows, catLabel, cf={}){
       added, isNew: !!added && added >= firstNew,
       isWeek: !!added && added >= lastPub,
       reserved: /r[ée]serv/i.test(r[col.rare]||"") || /r[ée]serv|vendu/i.test(status) || /^r[ée]serv/i.test(notes),
-      // « Nouveauté » écrit dans la liste (colonne B ou statut) : exclu du solde tant que la mention y est
-      noSale: (!cf.qtyInColB && /nouveaut/i.test(r[col.rare]||"")) || /nouveaut/i.test(status)
+      // « Nouveauté » écrit dans la colonne E de la liste : exclu du solde tant que la mention y est
+      noSale: /nouveaut/i.test(r[4]||"") || /nouveaut/i.test(status)
     });
   }
   return out;
