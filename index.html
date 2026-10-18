@@ -250,6 +250,7 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .was{text-decoration:line-through;text-decoration-color:#e8231b;text-decoration-thickness:2px;color:var(--ink,#1c1a17);font-size:1.1em;margin-right:6px}
 .now{color:#e8231b;font-size:.72em;font-weight:700}
 .lp .was{display:inline}
+.nosale{display:block;font:600 11px Inter,sans-serif;color:var(--ok);white-space:normal}
 .it .p .was{display:block;margin:0;font-size:16px}
 .it .p .now{font-size:13px}
 .promo.sale{background:#e8231b}
@@ -639,7 +640,9 @@ function buildItems(rows, catLabel, cf={}){
       photo: /^https?:\/\//i.test(photo) ? photo : "",
       added, isNew: !!added && added >= firstNew,
       isWeek: !!added && added >= lastPub,
-      reserved: /r[ée]serv/i.test(r[col.rare]||"") || /r[ée]serv|vendu/i.test(status) || /^r[ée]serv/i.test(notes)
+      reserved: /r[ée]serv/i.test(r[col.rare]||"") || /r[ée]serv|vendu/i.test(status) || /^r[ée]serv/i.test(notes),
+      // « Nouveauté » écrit dans la liste (colonne B ou statut) : exclu du solde tant que la mention y est
+      noSale: (!cf.qtyInColB && /nouveaut/i.test(r[col.rare]||"")) || /nouveaut/i.test(status)
     });
   }
   return out;
@@ -674,12 +677,13 @@ async function load(first){
   clearTimeout(pubTimer);
   if(nextPub<Infinity){ const wait=nextPub-Date.now()+20000; if(wait<2e9) pubTimer=setTimeout(()=>load(false), Math.max(wait,1000)); }
   // rien n'a changé depuis la dernière lecture : on ne redessine pas (garde la position de défilement)
-  const sig=items.map(i=>[i.code,i.price,i.added,i.photo,i.reserved,i.disc,i.sleeve].join("~")).join("|");
+  const sig=items.map(i=>[i.code,i.price,i.added,i.photo,i.reserved,i.disc,i.sleeve,i.noSale].join("~")).join("|");
   if(!first && sig===lastSig) return;
   lastSig=sig;
   ALL=items; CATS=cats;
   const codes=new Set(ALL.map(i=>i.code));
   for(const k in cart) cart[k].gone=!codes.has(k);
+  for(const i of ALL) if(cart[i.code]) cart[i.code].noSale=!!i.noSale;   // la mention « Nouveauté » peut être enlevée à la main
   const hasNew=ALL.some(i=>i.isNew);
   const valid=k=>k==="__all" || (k==="__new" && hasNew) || CATS.some(c=>c.label===k) || STYLE_TABS.some(t=>t.key===k && ALL.some(i=>inStyleTab(i,t)));
   if(first) cat="__all";            // le site s'ouvre sur l'onglet Tout
@@ -918,7 +922,7 @@ function toggle(code){
   const i=ALL.find(x=>x.code===code); if(!i) return;
   if(i.reserved && !cart[code]){ toast("Cet album est déjà réservé."); return; }
   if(cart[code]) delete cart[code];
-  else cart[code]={code,artist:i.artist,title:i.title,price:i.price,priceTxt:i.priceTxt,img:i.photo||coverCache[code]?.u||""};
+  else cart[code]={code,artist:i.artist,title:i.title,price:i.price,priceTxt:i.priceTxt,noSale:!!i.noSale,img:i.photo||coverCache[code]?.u||""};
   store.set("vinyl-cart",cart);
   document.querySelectorAll(`.card[data-code="${CSS.escape(code)}"], .lrow[data-code="${CSS.escape(code)}"]`).forEach(c=>{
     c.classList.toggle("in",!!cart[code]);
@@ -937,16 +941,19 @@ function saleOn(){
   const now=Date.now();
   return (!SALE.start||now>=Date.parse(SALE.start)) && (!SALE.end||now<Date.parse(SALE.end));
 }
+// le solde s'applique à ce disque? (pas aux disques marqués « Nouveauté » dans la liste)
+const onSale=i=>saleOn() && i.price>0 && !i.noSale;
 // prix après solde (arrondi au cent), ou prix normal hors solde
-const salePrice=n=>saleOn()&&n>0 ? r2(n*(100-SALE.pct)/100) : n;
+const salePrice=i=>onSale(i) ? r2(i.price*(100-SALE.pct)/100) : (i.price||0);
 // affichage du prix : régulier barré + prix soldé
-const priceHTML=i=>saleOn()&&i.price>0 ? `<s class="was">${esc(i.priceTxt)}</s><span class="now">${money(salePrice(i.price))}</span>` : esc(i.priceTxt);
+const priceHTML=i=>onSale(i) ? `<s class="was">${esc(i.priceTxt)}</s><span class="now">${money(salePrice(i))}</span>`
+  : esc(i.priceTxt)+(saleOn()&&i.noSale?'<span class="nosale">Nouveauté : hors solde</span>':"");
 // sous-total régulier + total (le solde se calcule disque par disque, comme affiché)
 function priceItems(list){
   const sub=r2(list.reduce((s,i)=>s+(i.price||0),0));
   if(!saleOn()) return pricing(sub);
-  const total=r2(list.reduce((s,i)=>s+salePrice(i.price||0),0));
-  return {sub,cur:{pct:SALE.pct,sale:true},next:null,disc:r2(sub-total),total};
+  const total=r2(list.reduce((s,i)=>s+salePrice(i),0)), disc=r2(sub-total);
+  return {sub,cur:disc>0?{pct:SALE.pct,sale:true}:null,next:null,disc,total};
 }
 function pricing(sub){
   const cur=[...TIERS].reverse().find(t=>sub>=t.min)||null;
@@ -964,7 +971,7 @@ function renderPromo(){
     $("#promoWrap").hidden=false;
     $("#promo").innerHTML=`<span class="sl"><span class="k">${esc(SALE.title)}</span>`+
       `<span class="big"><em>-${SALE.pct} %</em>sur tout le site</span>`+
-      `<span class="u">${esc(SALE.until)} · le prix soldé est affiché sous chaque disque</span></span>`+
+      `<span class="u">${esc(SALE.until)} · le prix soldé est affiché sous chaque disque (nouveautés exclues)</span></span>`+
       (TIERS.length?`<span class="old"><span>Rabais habituels :</span>${tiersHTML}<span class="xs">suspendus pendant le solde, de retour ensuite.</span></span>`:"");
     return;
   }
@@ -975,7 +982,7 @@ function renderPromo(){
 }
 function renderTiers(sub){
   const el=$("#tiers");
-  if(saleOn()){ el.hidden=false; el.innerHTML=`<div class="msg m2">🔥🔥🔥 ${esc(SALE.title)} : -${SALE.pct} % appliqué sur chaque disque, ${esc(SALE.until)}.</div>`; return; }
+  if(saleOn()){ el.hidden=false; el.innerHTML=`<div class="msg m2">🔥🔥🔥 ${esc(SALE.title)} : -${SALE.pct} % appliqué sur chaque disque (sauf les nouveautés), ${esc(SALE.until)}.</div>`; return; }
   if(!TIERS.length){ el.hidden=true; return; }
   const p=pricing(sub), max=TIERS[TIERS.length-1].min;
   const msg = !sub ? `Rabais de ${TIERS[0].pct} % dès ${money(TIERS[0].min)} d'achat.`
@@ -1045,7 +1052,7 @@ function orderText(){
   const p=priceItems(items);
   const name=$("#cname").value.trim();
   return `Bonjour! J'aimerais réserver ces vinyles :\n\n`+
-    items.map(i=>`${i.code} — ${i.artist} — ${i.title} (${saleOn()&&i.price>0?`${money(salePrice(i.price))} au lieu de ${i.priceTxt}`:i.priceTxt})`).join("\n")+
+    items.map(i=>`${i.code} — ${i.artist} — ${i.title} (${onSale(i)?`${money(salePrice(i))} au lieu de ${i.priceTxt}`:i.priceTxt+(saleOn()&&i.noSale?", nouveauté hors solde":"")})`).join("\n")+
     `\n\nNuméros : ${items.map(i=>i.code).join(", ")}`+
     (p.cur?`\nSous-total (prix régulier) : ${money(p.sub)}\n${p.cur.sale?`${SALE.title} -${p.cur.pct} %`:`Rabais ${p.cur.pct} %`} : − ${money(p.disc)}`:"")+
     `\nTotal : ${money(p.total)}`+
