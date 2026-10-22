@@ -443,19 +443,23 @@ details.guide dd{margin:0}
 <script>
 /* Chargement des pochettes
    - quelques images à la fois, quand elles approchent de l'écran (Discogs refuse les rafales)
-   - directement chez Discogs (le service de cache wsrv.nl reste disponible mais désactivé : IMG.proxy)
+   - via le service de miniatures wsrv.nl (plus léger, hors de la limite de Discogs), avec retour à Discogs en cas d'échec
    - en cas d'échec : nouveaux essais avec des pauses de plus en plus longues, puis à nouveau
      quand la pochette revient à l'écran. Pendant ce temps, le disque stylisé reste visible. */
-const IMG={max:6,active:0,queue:[],proxy:false,proxyOk:0,proxyKo:0};   // proxy:false = directement chez Discogs, comme avant
+const IMG={max:6,active:0,queue:[],proxy:true,proxyOk:0,proxyKo:0};   // proxy:true = miniatures légères via wsrv.nl (retour automatique à Discogs si le service ne répond pas)
 function viaCache(url,w){
   if(!/^https?:\/\//i.test(url)) return url;
   return "https://wsrv.nl/?url="+encodeURIComponent(url.replace(/^https?:\/\//i,""))+"&w="+w+"&h="+w+"&fit=cover&output=jpg&q=80";
 }
 function imgQueue(im){ if(im.dataset.state==="ok"||im.dataset.state==="wait"||im.dataset.state==="load") return; im.dataset.state="wait"; IMG.queue.push(im); imgPump(); }
+function imgNear(im){ return !imgIO || im.dataset.vis==="1"; }   // pochette à l'écran (ou presque)
 function imgPump(){
   while(IMG.active<IMG.max && IMG.queue.length){
     const im=IMG.queue.shift();
     if(!im.isConnected){ continue; }
+    // Pochette qui a quitté l'écran : on la retire de la file pour laisser passer celles qu'on regarde.
+    // Elle sera remise dans la file quand elle reviendra à l'écran.
+    if(!imgNear(im)){ im.dataset.state=""; continue; }
     IMG.active++; im.dataset.state="load";
     const n=+(im.dataset.try||0), useProxy=IMG.proxy && n<2;
     const url = useProxy ? viaCache(im.dataset.orig, +(im.dataset.w||400)) : im.dataset.orig+(n>2?(im.dataset.orig.includes("?")?"&":"?")+"r="+n:"");
@@ -466,7 +470,7 @@ function imgPump(){
       if(ok){ im.src=url; im.dataset.state="ok"; im.classList.add("ok"); }
       else{
         const k=n+1; im.dataset.try=k;
-        if(k<7){ im.dataset.state="retry"; setTimeout(()=>{ im.dataset.state=""; imgQueue(im); }, Math.min(30000,1000*2**k)+Math.random()*1500); }
+        if(k<7){ im.dataset.state="retry"; setTimeout(()=>{ im.dataset.state=""; if(imgNear(im)) imgQueue(im); }, Math.min(30000,1000*2**k)+Math.random()*1500); }
         else { im.dataset.state="failed"; im.dataset.try=2; }   // réessayé quand la pochette revient à l'écran
       }
       setTimeout(imgPump, ok?0:300);
@@ -474,7 +478,7 @@ function imgPump(){
     t.onload=()=>done(true); t.onerror=()=>done(false); t.src=url;
   }
 }
-const imgIO=("IntersectionObserver" in window) ? new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ const im=e.target; if(im.dataset.state==="failed") im.dataset.state=""; imgQueue(im); } }),{rootMargin:"600px"}) : null;
+const imgIO=("IntersectionObserver" in window) ? new IntersectionObserver(es=>es.forEach(e=>{ const im=e.target; im.dataset.vis=e.isIntersecting?"1":"0"; if(e.isIntersecting){ if(im.dataset.state==="failed") im.dataset.state=""; imgQueue(im); } }),{rootMargin:"600px"}) : null;
 function imgWatch(root){ (root||document).querySelectorAll("img.lz:not([data-watch])").forEach(im=>{ im.dataset.watch=1; imgIO?imgIO.observe(im):imgQueue(im); }); }
 </script>
 <script>
