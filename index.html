@@ -167,7 +167,12 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .ph{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,#2a2622 0 7%,#c8262b 7.5% 17%,#1b1917 17.5% 19%,#0e0d0c 19.5% 100%)}
 .ph::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 50%,transparent 0 3px,rgba(255,255,255,.035) 3px 4px)}
 .ph span{position:relative;z-index:1;color:#fff;font:700 13px Inter,sans-serif;text-align:center;padding:0 22%;margin-top:62%;text-shadow:0 1px 3px #000;line-height:1.2}
-.gband{background:var(--red);color:#fff;padding:6px 10px 7px;line-height:1.25;display:flex;flex-direction:column;gap:1px}
+.gband{background:var(--red);color:#fff;padding:6px 8px 7px 10px;line-height:1.25;display:flex;align-items:center;gap:8px}
+.gtx{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.brate{flex:none;background:rgba(28,26,23,.88);border-radius:6px;padding:3px 7px 3px;text-align:center;line-height:1}
+.brate b{font:700 15px Fraunces,serif;color:#ffd23f}
+.brate small{font:600 10px Inter,sans-serif;color:#fff}
+.brate i{display:block;font:600 8px Inter,sans-serif;font-style:normal;color:#d9d3c7;margin-top:2px;letter-spacing:.02em}
 .gband b{font:700 12px Inter,sans-serif;letter-spacing:.02em}
 .gband span{font:500 11px Inter,sans-serif;opacity:.85}
 .code{position:absolute;top:8px;left:8px;z-index:3;background:var(--red);color:#fff;font:700 12px Inter,sans-serif;padding:3px 7px;border-radius:5px;letter-spacing:.02em;max-width:calc(100% - 96px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -838,14 +843,14 @@ function card(i){
   return `<article class="card ${inCart?"in":""} ${i.reserved?"reserved":""}" data-code="${esc(key)}" data-add="${esc(key)}" title="${i.reserved?"Réservé":"Cliquer pour ajouter à ma sélection"}">
     ${(()=>{ // Bannière en haut : Découverte = styles Discogs + genre sur une 2e ligne ; ailleurs = genre
       const disc=/^d[ée]couverte/i.test(i.cat||"");
-      const l1=disc ? (i.styleTxt || i.genreTxt || i.mainGenre) : i.mainGenre;
+      const l1=disc ? ((i.styles||[]).slice(0,2).join(" / ") || i.genreTxt || i.mainGenre) : i.mainGenre;   // 2 premiers styles seulement
       const l2=disc && i.genreTxt && i.genreTxt!==l1 ? i.genreTxt : "";
-      return l1?`<div class="gband"><b>${esc(l1)}</b>${l2?`<span>${esc(l2)}</span>`:""}</div>`:""; })()}
+      const rate=i.drate?`<span class="brate" title="Cote moyenne sur Discogs${i.dvotes?` (${i.dvotes} votes)`:""}"><b>${i.drate.toFixed(1).replace(".",",")}<small>/5</small></b><i>Discogs</i></span>`:"";
+      return (l1||rate)?`<div class="gband"><div class="gtx">${l1?`<b>${esc(l1)}</b>`:""}${l2?`<span>${esc(l2)}</span>`:""}</div>${rate}</div>`:""; })()}
     <div class="cover">
       ${img?`<div class="ph"><span>${esc(i.artist)}</span></div><img class="lz" data-orig="${esc(img)}" data-w="400" alt="" decoding="async" referrerpolicy="no-referrer">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
       ${i.reserved?'<span class="resband">RÉSERVÉ</span>':""}
-      ${i.drate?`<span class="drate" title="Cote moyenne sur Discogs${i.dvotes?` (${i.dvotes} votes)`:""}"><b>${i.drate.toFixed(1).replace(".",",")}<small>/5</small></b><i>reviews Discogs</i></span>`:""}
-      <span class="badges${i.drate?" low":""}">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
+      <span class="badges">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
       <dl class="info">
         ${d("No",i.code)}${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Genre",i.genreTxt)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}
         <span class="hint">${i.reserved?"Réservé":inCart?"Cliquer pour retirer":"Cliquer pour ajouter +"}</span>
