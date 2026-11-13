@@ -167,6 +167,9 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .ph{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,#2a2622 0 7%,#c8262b 7.5% 17%,#1b1917 17.5% 19%,#0e0d0c 19.5% 100%)}
 .ph::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 50%,transparent 0 3px,rgba(255,255,255,.035) 3px 4px)}
 .ph span{position:relative;z-index:1;color:#fff;font:700 13px Inter,sans-serif;text-align:center;padding:0 22%;margin-top:62%;text-shadow:0 1px 3px #000;line-height:1.2}
+.gband{background:var(--red);color:#fff;padding:6px 10px 7px;line-height:1.25;display:flex;flex-direction:column;gap:1px}
+.gband b{font:700 12px Inter,sans-serif;letter-spacing:.02em}
+.gband span{font:500 11px Inter,sans-serif;opacity:.85}
 .code{position:absolute;top:8px;left:8px;z-index:3;background:var(--red);color:#fff;font:700 12px Inter,sans-serif;padding:3px 7px;border-radius:5px;letter-spacing:.02em;max-width:calc(100% - 96px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .badges{position:absolute;top:8px;right:8px;z-index:3;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
 .badges span{font:700 11px Inter,sans-serif;padding:3px 7px;border-radius:5px}
@@ -833,10 +836,13 @@ function card(i){
   const d=(k,v)=>v?`<dt>${k}</dt><dd>${esc(v)}</dd>`:"";
   const addedTxt=i.added?new Date(i.added).toLocaleDateString("fr-CA",{day:"numeric",month:"long",year:"numeric"}):"";
   return `<article class="card ${inCart?"in":""} ${i.reserved?"reserved":""}" data-code="${esc(key)}" data-add="${esc(key)}" title="${i.reserved?"Réservé":"Cliquer pour ajouter à ma sélection"}">
+    ${(()=>{ // Bannière en haut : Découverte = styles Discogs + genre sur une 2e ligne ; ailleurs = genre
+      const disc=/^d[ée]couverte/i.test(i.cat||"");
+      const l1=disc ? (i.styleTxt || i.genreTxt || i.mainGenre) : i.mainGenre;
+      const l2=disc && i.genreTxt && i.genreTxt!==l1 ? i.genreTxt : "";
+      return l1?`<div class="gband"><b>${esc(l1)}</b>${l2?`<span>${esc(l2)}</span>`:""}</div>`:""; })()}
     <div class="cover">
       ${img?`<div class="ph"><span>${esc(i.artist)}</span></div><img class="lz" data-orig="${esc(img)}" data-w="400" alt="" decoding="async" referrerpolicy="no-referrer">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
-      ${(()=>{ const tag=/^d[ée]couverte/i.test(i.cat||"") ? (i.mainStyle || i.mainGenre) : i.mainGenre;   // Découverte : style Discogs plutôt que le genre
-        return tag?`<span class="code">${esc(tag)}</span>`:""; })()}
       ${i.reserved?'<span class="resband">RÉSERVÉ</span>':""}
       ${i.drate?`<span class="drate" title="Cote moyenne sur Discogs${i.dvotes?` (${i.dvotes} votes)`:""}"><b>${i.drate.toFixed(1).replace(".",",")}<small>/5</small></b><i>reviews Discogs</i></span>`:""}
       <span class="badges${i.drate?" low":""}">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
