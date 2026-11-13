@@ -34,10 +34,10 @@ const CONFIG = {
       banner: {
         title: "🔍 Découverte – disques peu communs",
         lead: "Des disques peu communs, tous bien cotés sur Discogs.",
+        lot: { title: "Rabais en lot", until: "Solde spécial jusqu'au 27 novembre" },   // paliers tirés de LOT (plus bas)
         points: [
           ["Disques peu communs", "Des albums peu communs, mais qui ont tous de bonnes critiques (« reviews ») sur Discogs."],
           ["Condition", "Très bonne condition en moyenne (VG+ ou mieux)."],
-          ["RABAIS EN LOT", "Solde spécial jusqu'au 27 novembre : 5 albums ou + : -30 % · 10 albums ou + : -50 % · 20 albums ou + : -60 %"],
           ["Calcul automatique", "Le rabais en lot est calculé dans votre sélection. Le rabais sur le total de la commande ne s'applique pas à ces disques."]
         ]
       }
@@ -332,6 +332,17 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .note{font-size:12px;color:var(--muted);margin:0}
 .sumline[hidden]{display:none}
+.banner .lotbox{position:relative;z-index:1;margin:0 0 16px;background:#1c1a17;border-radius:14px;padding:16px 16px 18px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.banner .lotbox .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:12px}
+.banner .lotbox .lt{font:800 clamp(22px,3.4vw,30px)/1 Fraunces,Georgia,serif;text-transform:uppercase;letter-spacing:.02em;color:#ffd23f}
+.banner .lotbox .lu{font:700 14px Inter,sans-serif;background:#ffd23f;color:#1c1a17;border-radius:999px;padding:4px 12px}
+.banner .lotbox .lts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.banner .lotbox .lti{border-radius:12px;padding:14px 10px;text-align:center;color:#1c1a17}
+.banner .lotbox .lti b{display:block;font:800 clamp(28px,5.5vw,46px)/1 Fraunces,Georgia,serif}
+.banner .lotbox .lti span{display:block;margin-top:6px;font:700 clamp(13px,1.8vw,16px) Inter,sans-serif}
+.banner .lotbox .lti.g0{background:linear-gradient(160deg,#ffe680,#ffd23f)}
+.banner .lotbox .lti.g1{background:linear-gradient(160deg,#ffb347,#ff8a1f)}
+.banner .lotbox .lti.g2{background:linear-gradient(160deg,#ff5a4e,#d61f26);color:#fff;transform:scale(1.04);box-shadow:0 0 0 3px #fff3}
 .cat .pill{margin-left:8px;padding:2px 8px;border-radius:999px;background:#ffd23f;color:#1c1a17;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;animation:pillPulse 2s ease-in-out infinite}
 @keyframes pillPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,210,63,.6)}50%{box-shadow:0 0 0 5px rgba(255,210,63,0)}}
 .lotmsg{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#efe7ff;color:#3b2470;font-size:14px;line-height:1.4}
@@ -855,7 +866,9 @@ function render(){
   if(query) main.insertAdjacentHTML("beforeend",`<p class="lead">${list.length} résultat${list.length>1?"s":""} pour « ${esc(query)} » dans tout le catalogue.</p>`);
   else if(cat==="__new") main.insertAdjacentHTML("beforeend",`<p class="lead">L'arrivage de la semaine, en ordre alphabétique. Nouveaux arrivages chaque dimanche à 19 h 30!</p>`);
   const bn=!query && CONFIG.CATEGORIES.find(c=>c.label===cat)?.banner;
-  if(bn) main.insertAdjacentHTML("beforeend",`<section class="banner"><h2>${esc(bn.title)}</h2>${bn.lead?`<p class="lead2">${esc(bn.lead)}</p>`:""}<div class="pts">${(bn.points||[]).map(([t,d])=>`<div class="pt"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div></section>`);
+  const lotHTML = bn && bn.lot && (CONFIG.LOT?.tiers||[]).length && (!CONFIG.LOT.end||Date.now()<Date.parse(CONFIG.LOT.end))
+    ? `<div class="lotbox"><div class="lh"><span class="lt">${esc(bn.lot.title)}</span><span class="lu">${esc(bn.lot.until)}</span></div><div class="lts">${CONFIG.LOT.tiers.slice().sort((a,b)=>a.min-b.min).map((x,k,a)=>`<div class="lti g${a.length<2?2:Math.round(k*2/(a.length-1))}"><b>-${x.pct} %</b><span>${x.min} albums ou +</span></div>`).join("")}</div></div>` : "";
+  if(bn) main.insertAdjacentHTML("beforeend",`<section class="banner"><h2>${esc(bn.title)}</h2>${bn.lead?`<p class="lead2">${esc(bn.lead)}</p>`:""}${lotHTML}<div class="pts">${(bn.points||[]).map(([t,d])=>`<div class="pt"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div></section>`);
   if(!list.length){ main.insertAdjacentHTML("beforeend",'<div class="empty">Aucun album ne correspond.</div>'); return; }
 
   // regrouper par lettre quand on trie par artiste
