@@ -171,6 +171,13 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .badges{position:absolute;top:8px;right:8px;z-index:3;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
 .badges span{font:700 11px Inter,sans-serif;padding:3px 7px;border-radius:5px}
 .b-rare{background:#e7b416;color:#1c1a17}
+.drate{position:absolute;top:8px;right:8px;z-index:3;background:rgba(28,26,23,.88);color:#fff;border-radius:8px;padding:5px 8px 4px;text-align:center;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.drate b{display:block;font:800 18px Fraunces,Georgia,serif;color:#ffd23f}
+.drate b small{font:700 11px Inter,sans-serif;color:#fff;margin-left:1px}
+.drate i{display:block;font:600 9px Inter,sans-serif;font-style:normal;color:#d9d3c7;margin-top:3px;letter-spacing:.02em}
+.badges.low{top:58px}
+.meta .row .grades.one .g b{white-space:normal}
+.grades.one .g b{white-space:normal;display:inline-block}
 .b-new{background:#fff;color:var(--red)}
 .info{position:absolute;inset:0;z-index:2;background:rgba(15,13,11,.9);color:#f4efe6;padding:40px 12px 12px;font-size:12.5px;opacity:0;transition:opacity .2s;display:flex;flex-direction:column;gap:3px;overflow:auto;margin:0}
 .info dt{color:#b9ae9c;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
@@ -654,7 +661,7 @@ function buildItems(rows, catLabel, cf={}){
     disc:find(/tat du disque|tat disque/,8), sleeve:find(/tat\s*(de la\s*)?pochette/,9),
     pressing:find(/pressing/,10), nb:find(/nbre|nombre|^lp$/,11), style:find(/^(?!.*discogs).*(style|genre)/,12), dgenre:find(/genre discogs/,-1), dstyles:find(/styles discogs/,-1),
     country:find(/pays/,13), year:find(/ann[ée]e/,14), notes:find(/comment/,15),
-    photo:find(/^photo/,-1), status:find(/r[ée]serv|statut|vendu/,-1), added:find(/ajout/,-1)
+    photo:find(/^photo/,-1), drate:find(/^cote/,-1), dvotes:find(/votes/,-1), status:find(/r[ée]serv|statut|vendu/,-1), added:find(/ajout/,-1)
   };
   const now=Date.now(), lastPub=lastPubTime(now), firstNew=lastPub-(CONFIG.NEW_WEEKS-1)*7*864e5;
   const out=[];
@@ -686,6 +693,8 @@ function buildItems(rows, catLabel, cf={}){
       styles: st, styleTxt: st.join(" / "), genreTxt: dg.join(" / "),
       matchTxt: fold((fromDiscogs ? [...dg, ...ds] : own).join(" / ")), country: clean(r[col.country]),
       year: normYear(r[col.year]), notes,
+      drate: col.drate>=0 ? (parseFloat(String(r[col.drate]||"").replace(",","."))||0) : 0,
+      dvotes: col.dvotes>=0 ? (parseInt(r[col.dvotes],10)||0) : 0,
       photo: /^https?:\/\//i.test(photo) ? photo : "",
       added, isNew: !!added && added >= firstNew,
       isWeek: !!added && added >= lastPub,
@@ -813,7 +822,8 @@ function card(i){
       ${img?`<div class="ph"><span>${esc(i.artist)}</span></div><img class="lz" data-orig="${esc(img)}" data-w="400" alt="" decoding="async" referrerpolicy="no-referrer">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
       <span class="code">${esc(i.code)}</span>
       ${i.reserved?'<span class="resband">RÉSERVÉ</span>':""}
-      <span class="badges">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
+      ${i.drate?`<span class="drate" title="Cote moyenne sur Discogs${i.dvotes?` (${i.dvotes} votes)`:""}"><b>${i.drate.toFixed(1).replace(".",",")}<small>/5</small></b><i>reviews Discogs</i></span>`:""}
+      <span class="badges${i.drate?" low":""}">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
       <dl class="info">
         ${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Genre",i.genreTxt)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}
         <span class="hint">${i.reserved?"Réservé":inCart?"Cliquer pour retirer":"Cliquer pour ajouter +"}</span>
@@ -826,7 +836,8 @@ function card(i){
       <div class="title">${esc(i.title)}</div>
       ${i.reserved?'<div class="resv">Réservé</div>':""}
       <div class="row"><span class="price">${priceHTML(i)}</span>
-        ${(i.disc||i.sleeve)?`<span class="grades"><span class="g"><i>Disque</i><b class="l${gradeLevel(i.disc)}">${esc(i.disc||"–")}</b></span><span class="g"><i>Pochette</i><b class="l${gradeLevel(i.sleeve)}">${esc(i.sleeve||"–")}</b></span></span>`:`<span class="grades"><span class="g"><i>État</i><b>VG- à VG+</b></span></span>`}
+        ${(i.disc && i.disc===i.sleeve && i.disc.length>10)?`<span class="grades one"><span class="g"><i>État</i><b class="l${gradeLevel(i.disc)}">${esc(i.disc)}</b></span></span>`
+        :(i.disc||i.sleeve)?`<span class="grades"><span class="g"><i>Disque</i><b class="l${gradeLevel(i.disc)}">${esc(i.disc||"–")}</b></span><span class="g"><i>Pochette</i><b class="l${gradeLevel(i.sleeve)}">${esc(i.sleeve||"–")}</b></span></span>`:`<span class="grades"><span class="g"><i>État</i><b>VG- à VG+</b></span></span>`}
       </div>
     </div></article>`;
 }
