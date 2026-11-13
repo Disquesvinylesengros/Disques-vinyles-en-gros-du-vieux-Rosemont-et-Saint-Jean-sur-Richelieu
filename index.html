@@ -705,7 +705,7 @@ function buildItems(rows, catLabel, cf={}){
       price, priceTxt: price? price.toLocaleString("fr-CA",{maximumFractionDigits:2})+" $" : priceTxt,
       disc: grade(r[col.disc]), sleeve: grade(r[col.sleeve]),
       pressing: clean(r[col.pressing]), nb: clean(r[col.nb]),
-      styles: st, styleTxt: st.join(" / "), genreTxt: dg.join(" / "), mainGenre: dg[0] || own[0] || "",
+      styles: st, styleTxt: st.join(" / "), genreTxt: dg.join(" / "), mainGenre: dg[0] || own[0] || "", mainStyle: ds[0] || "",
       matchTxt: fold((fromDiscogs ? [...dg, ...ds] : own).join(" / ")), country: clean(r[col.country]),
       year: normYear(r[col.year]), notes,
       drate: col.drate>=0 ? (parseFloat(String(r[col.drate]||"").replace(",","."))||0) : 0,
@@ -835,7 +835,8 @@ function card(i){
   return `<article class="card ${inCart?"in":""} ${i.reserved?"reserved":""}" data-code="${esc(key)}" data-add="${esc(key)}" title="${i.reserved?"Réservé":"Cliquer pour ajouter à ma sélection"}">
     <div class="cover">
       ${img?`<div class="ph"><span>${esc(i.artist)}</span></div><img class="lz" data-orig="${esc(img)}" data-w="400" alt="" decoding="async" referrerpolicy="no-referrer">`:`<div class="ph"><span>${esc(i.artist)}</span></div>`}
-      ${i.mainGenre?`<span class="code">${esc(i.mainGenre)}</span>`:""}
+      ${(()=>{ const tag=/^d[ée]couverte/i.test(i.cat||"") ? (i.mainStyle || i.mainGenre) : i.mainGenre;   // Découverte : style Discogs plutôt que le genre
+        return tag?`<span class="code">${esc(tag)}</span>`:""; })()}
       ${i.reserved?'<span class="resband">RÉSERVÉ</span>':""}
       ${i.drate?`<span class="drate" title="Cote moyenne sur Discogs${i.dvotes?` (${i.dvotes} votes)`:""}"><b>${i.drate.toFixed(1).replace(".",",")}<small>/5</small></b><i>reviews Discogs</i></span>`:""}
       <span class="badges${i.drate?" low":""}">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
