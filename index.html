@@ -172,7 +172,7 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .badges span{font:700 11px Inter,sans-serif;padding:3px 7px;border-radius:5px}
 .b-rare{background:#e7b416;color:#1c1a17}
 .drate{position:absolute;top:8px;right:8px;z-index:3;background:rgba(28,26,23,.88);color:#fff;border-radius:8px;padding:5px 8px 4px;text-align:center;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.drate b{display:block;font:800 18px Fraunces,Georgia,serif;color:#ffd23f}
+.drate b{display:block;font:800 18px Fraunces,Georgia,serif;color:#5fd38a}
 .drate b small{font:700 11px Inter,sans-serif;color:#fff;margin-left:1px}
 .drate i{display:block;font:600 9px Inter,sans-serif;font-style:normal;color:#d9d3c7;margin-top:3px;letter-spacing:.02em}
 .badges.low{top:58px}
@@ -836,7 +836,7 @@ function card(i){
       <div class="title">${esc(i.title)}</div>
       ${i.reserved?'<div class="resv">Réservé</div>':""}
       <div class="row"><span class="price">${priceHTML(i)}</span>
-        ${(i.disc && i.disc===i.sleeve && i.disc.length>10)?`<span class="grades one"><span class="g"><i>État</i><b class="l${gradeLevel(i.disc)}">${esc(i.disc)}</b></span></span>`
+        ${(i.disc && i.disc===i.sleeve && i.disc.length>10)?`<span class="grades one"><span class="g"><i>État</i><b class="l4">${esc(i.disc)}</b></span></span>`
         :(i.disc||i.sleeve)?`<span class="grades"><span class="g"><i>Disque</i><b class="l${gradeLevel(i.disc)}">${esc(i.disc||"–")}</b></span><span class="g"><i>Pochette</i><b class="l${gradeLevel(i.sleeve)}">${esc(i.sleeve||"–")}</b></span></span>`:`<span class="grades"><span class="g"><i>État</i><b>VG- à VG+</b></span></span>`}
       </div>
     </div></article>`;
