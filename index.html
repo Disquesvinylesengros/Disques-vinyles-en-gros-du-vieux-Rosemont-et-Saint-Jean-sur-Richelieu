@@ -29,6 +29,18 @@ const CONFIG = {
         ]
       }
     },
+    { label: "Découverte – disques rares", icon: "💎", hot: true, sheet: "Découverte",
+      banner: {
+        title: "💎 Découverte – disques rares",
+        lead: "Des disques peu communs, tous bien cotés sur Discogs.",
+        points: [
+          ["Disques rares", "Des albums peu communs, mais qui ont tous de bonnes critiques (« reviews ») sur Discogs."],
+          ["Condition", "Très bonne condition en moyenne (VG+ ou mieux)."],
+          ["RABAIS EN LOT", "Solde spécial jusqu'au 27 novembre : 5 albums ou + : -30 % · 10 albums ou + : -50 % · 20 albums ou + : -60 %"],
+          ["Calcul automatique", "Le rabais en lot est calculé dans votre sélection. Le rabais sur le total de la commande ne s'applique pas à ces disques."]
+        ]
+      }
+    },
     { label: "Anglo",     sheet: "ANGLO" },
     { label: "Franco",    sheet: "FRANCO" },
     { label: "Jazz",      gid:   "2036111384" },
@@ -49,6 +61,18 @@ const CONFIG = {
     end:   "2026-10-26T00:00:00-04:00",   // fin : dimanche 25 octobre à 23 h 59
     title: "Solde de lancement du site web",
     until: "jusqu'au dimanche 25 octobre"
+  },
+  // Rabais en lot de l'onglet Découverte (numéros D-…) : selon le NOMBRE de disques Découverte.
+  // Ces disques sont exclus des rabais par palier sur le total. Après « end », plus de rabais en lot.
+  LOT: {
+    prefix: "D-",
+    title: "Rabais en lot Découverte",
+    end: "2026-11-28T00:00:00-05:00",   // fin : vendredi 27 novembre à 23 h 59
+    tiers: [
+      { min: 5,  pct: 30 },
+      { min: 10, pct: 50 },
+      { min: 20, pct: 60 }
+    ]
   },
   // Onglets par style : regroupent les disques de la liste principale (Anglo, Franco, Jazz…)
   // dont la colonne « Style de musique » contient un de ces mots.
@@ -307,6 +331,11 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .note{font-size:12px;color:var(--muted);margin:0}
 .sumline[hidden]{display:none}
+.lotmsg{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#efe7ff;color:#3b2470;font-size:14px;line-height:1.4}
+.lotmsg[hidden]{display:none}
+.lotmsg .lsteps{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.lotmsg .lsteps b{font-size:12px;padding:2px 8px;border-radius:999px;background:#fff;color:#6b5a99;font-weight:700}
+.lotmsg .lsteps b.on{background:#5b2bb5;color:#fff}
 /* filtre par état du disque */
 .cond{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
 .cond::-webkit-scrollbar{display:none}
@@ -425,8 +454,10 @@ details.guide dd{margin:0}
     <div class="items" id="items"></div>
     <div class="foot">
       <div class="tiers" id="tiers"></div>
+      <div class="lotmsg" id="lotMsg" hidden></div>
       <div class="sumline"><span>Sous-total</span><span id="subtotal">0 $</span></div>
       <div class="sumline disc" id="discLine" hidden><span id="discLbl">Rabais</span><span id="discAmt"></span></div>
+      <div class="sumline disc" id="lotLine" hidden><span id="lotLbl">Rabais en lot</span><span id="lotAmt"></span></div>
       <div class="tot"><span>Total</span><span id="total">0 $</span></div>
       <div class="minwarn" id="minwarn" hidden></div>
       <label class="fld"><span>Votre nom <em>*</em></span><input id="cname" autocomplete="name" placeholder="Prénom et nom"></label>
@@ -945,19 +976,47 @@ function saleOn(){
   const now=Date.now();
   return (!SALE.start||now>=Date.parse(SALE.start)) && (!SALE.end||now<Date.parse(SALE.end));
 }
-// le solde s'applique à ce disque? (pas aux disques marqués « Nouveauté » dans la liste)
-const onSale=i=>saleOn() && i.price>0 && !i.noSale;
+// ---------- Rabais en lot (onglet Découverte) ----------
+const LOT=CONFIG.LOT||{};
+const LT=(LOT.tiers||[]).slice().sort((a,b)=>a.min-b.min);
+const lotOn=()=>LT.length>0 && (!LOT.end||Date.now()<Date.parse(LOT.end));
+const isLot=i=>!!LOT.prefix && String(i.code||"").toUpperCase().startsWith(LOT.prefix.toUpperCase());
+function lotPricing(list){
+  const n=list.length, sub=r2(list.reduce((s,i)=>s+(i.price||0),0));
+  const cur=lotOn()?[...LT].reverse().find(t=>n>=t.min)||null:null;
+  const next=lotOn()?LT.find(t=>n<t.min)||null:null;
+  const disc=cur?r2(sub*cur.pct/100):0;
+  return {n,sub,cur,next,disc};
+}
+// le solde s'applique à ce disque? (pas aux disques marqués « Nouveauté » ni aux disques Découverte)
+const onSale=i=>saleOn() && i.price>0 && !i.noSale && !isLot(i);
 // prix après solde (arrondi au cent), ou prix normal hors solde
 const salePrice=i=>onSale(i) ? r2(i.price*(100-SALE.pct)/100) : (i.price||0);
 // affichage du prix : régulier barré + prix soldé
 const priceHTML=i=>onSale(i) ? `<s class="was">${esc(i.priceTxt)}</s><span class="now">${money(salePrice(i))}</span>`
   : esc(i.priceTxt)+(saleOn()&&i.noSale?'<span class="nosale">Nouveauté : hors solde</span>':"");
 // sous-total régulier + total (le solde se calcule disque par disque, comme affiché)
-function priceItems(list){
+function priceRegular(list){
   const sub=r2(list.reduce((s,i)=>s+(i.price||0),0));
   if(!saleOn()) return pricing(sub);
   const total=r2(list.reduce((s,i)=>s+salePrice(i),0)), disc=r2(sub-total);
   return {sub,cur:disc>0?{pct:SALE.pct,sale:true}:null,next:null,disc,total};
+}
+// disques réguliers (paliers sur leur total) + disques Découverte (rabais en lot selon le nombre)
+function priceItems(list){
+  const p=priceRegular(list.filter(i=>!isLot(i)));
+  const lot=lotPricing(list.filter(isLot));
+  return {...p, rsub:p.sub, sub:r2(p.sub+lot.sub), total:r2(p.total+lot.sub-lot.disc), lot};
+}
+function renderLot(lot){
+  const el=$("#lotMsg");
+  if(!lot.n || !LT.length){ el.hidden=true; return; }
+  el.hidden=false;
+  const steps=LT.map(t=>`<b class="${lot.n>=t.min?"on":""}">${t.min}+ : -${t.pct} %</b>`).join(" ");
+  const msg = !lotOn() ? `Le ${esc(LOT.title.toLowerCase())} est terminé.`
+    : lot.cur && !lot.next ? `💎 Rabais maximal : -${lot.cur.pct} % sur vos ${lot.n} disques Découverte!`
+    : `💎 ${lot.cur?`-${lot.cur.pct} % sur vos ${lot.n} disques Découverte. `:`${lot.n} disque${lot.n>1?"s":""} Découverte. `}Encore <b>${lot.next.min-lot.n}</b> pour obtenir -${lot.next.pct} %.`;
+  el.innerHTML=`<div class="msg">${msg}</div><div class="lsteps">${steps}</div>`;
 }
 function pricing(sub){
   const cur=[...TIERS].reverse().find(t=>sub>=t.min)||null;
@@ -982,7 +1041,7 @@ function renderPromo(){
   if(!TIERS.length){ $("#promoWrap").hidden=true; return; }
   $("#promo").innerHTML=`<span class="h">Plus vous en prenez, <em>moins vous payez!</em></span>`+
     `<span class="ts">${TIERS.map((t,k)=>`<span class="t tc${tc(k)}"><b>-${t.pct} %</b> dès ${money(t.min)}</span>`).join("")}</span>`+
-    `<span class="s">Le rabais s'applique automatiquement sur le total de votre sélection.</span>`;
+    `<span class="s">Le rabais s'applique automatiquement sur le total de votre sélection (sauf les disques Découverte, qui ont leur rabais en lot).</span>`;
 }
 function renderTiers(sub){
   const el=$("#tiers");
@@ -1011,8 +1070,11 @@ function renderCart(){
   $("#subtotal").textContent=money(sub);
   $("#discLine").hidden=!p.cur;
   if(p.cur){ $("#discLbl").textContent=p.cur.sale?`${SALE.title} -${p.cur.pct} %`:`Rabais ${p.cur.pct} %`; $("#discAmt").textContent="− "+money(p.disc); }
+  $("#lotLine").hidden=!p.lot.cur;
+  if(p.lot.cur){ $("#lotLbl").textContent=`${LOT.title} -${p.lot.cur.pct} % (${p.lot.n} disques)`; $("#lotAmt").textContent="− "+money(p.lot.disc); }
   $("#total").textContent=money(p.total);
-  renderTiers(sub);
+  renderTiers(p.rsub);
+  renderLot(p.lot);
   renderCheckout();
   $("#items").innerHTML=items.length? items.map(i=>`<div class="it">
       ${i.img?`<img class="lz" data-orig="${esc(i.img)}" data-w="120" alt="" referrerpolicy="no-referrer">`:'<div class="mini"></div>'}
@@ -1058,7 +1120,9 @@ function orderText(){
   return `Bonjour! J'aimerais réserver ces vinyles :\n\n`+
     items.map(i=>`${i.code} — ${i.artist} — ${i.title} (${onSale(i)?`${money(salePrice(i))} au lieu de ${i.priceTxt}`:i.priceTxt+(saleOn()&&i.noSale?", nouveauté hors solde":"")})`).join("\n")+
     `\n\nNuméros : ${items.map(i=>i.code).join(", ")}`+
-    (p.cur?`\nSous-total (prix régulier) : ${money(p.sub)}\n${p.cur.sale?`${SALE.title} -${p.cur.pct} %`:`Rabais ${p.cur.pct} %`} : − ${money(p.disc)}`:"")+
+    (p.cur||p.lot.cur?`\nSous-total (prix régulier) : ${money(p.sub)}`:"")+
+    (p.cur?`\n${p.cur.sale?`${SALE.title} -${p.cur.pct} %`:`Rabais ${p.cur.pct} %`} : − ${money(p.disc)}`:"")+
+    (p.lot.cur?`\n${LOT.title} -${p.lot.cur.pct} % (${p.lot.n} disques) : − ${money(p.lot.disc)}`:"")+
     `\nTotal : ${money(p.total)}`+
     `\n\n${loc===SHIP ? "Livraison (frais à discuter selon la commande et la destination)" : "Collecte à "+loc}`+
     `\nNom : ${name}`;
