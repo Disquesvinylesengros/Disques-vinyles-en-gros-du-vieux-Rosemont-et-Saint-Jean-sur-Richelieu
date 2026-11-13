@@ -207,6 +207,7 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .g i{font-style:normal;color:var(--muted)}
 .g b{font-weight:600;padding:1px 6px;border-radius:4px;background:var(--line)}
 .g b.l5{background:#1f6f45;color:#fff}.g b.l4{background:#2f8f58;color:#fff}.g b.l3{background:#7ba34a;color:#fff}.g b.l2{background:#d49a2a;color:#fff}.g b.l1{background:#c0602b;color:#fff}
+.cnote{font-size:12px;line-height:1.3;color:var(--ink);background:var(--line);border-left:3px solid var(--warn);border-radius:4px;padding:4px 7px;margin-bottom:6px;white-space:pre-line}
 .resv{font-size:12px;color:var(--warn);font-weight:600}
 .sentinel{height:1px}
 /* bascule pochettes / liste */
@@ -825,13 +826,14 @@ function card(i){
       ${i.drate?`<span class="drate" title="Cote moyenne sur Discogs${i.dvotes?` (${i.dvotes} votes)`:""}"><b>${i.drate.toFixed(1).replace(".",",")}<small>/5</small></b><i>reviews Discogs</i></span>`:""}
       <span class="badges${i.drate?" low":""}">${i.isNew?'<span class="b-new">NOUVEAU</span>':""}${i.rare?'<span class="b-rare">RARE</span>':""}</span>
       <dl class="info">
-        ${d("No",i.code)}${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Genre",i.genreTxt)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}${d("Commentaires",i.notes)}
+        ${d("No",i.code)}${d("Année",i.year)}${d("Pressing",i.pressing)}${d("Pays",i.country)}${d("Nombre de disques",i.nb)}${i.qty>1?d("Exemplaires en stock",String(i.qty)):""}${d("Catégorie",i.cat)}${d("Genre",i.genreTxt)}${d("Style",i.styleTxt)}${d("Ajouté le",addedTxt)}
         <span class="hint">${i.reserved?"Réservé":inCart?"Cliquer pour retirer":"Cliquer pour ajouter +"}</span>
       </dl>
       <div class="incart"><b>✓ Dans ma sélection</b></div>
       <button class="ibtn" data-info aria-label="Détails">i</button>
     </div>
     <div class="meta">
+      ${i.notes?`<div class="cnote">${esc(i.notes)}</div>`:""}
       <div class="artist">${esc(i.artist)}</div>
       <div class="title">${esc(i.title)}</div>
       ${i.reserved?'<div class="resv">Réservé</div>':""}
