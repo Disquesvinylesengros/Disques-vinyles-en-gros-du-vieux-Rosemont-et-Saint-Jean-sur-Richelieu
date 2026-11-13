@@ -29,12 +29,13 @@ const CONFIG = {
         ]
       }
     },
-    { label: "Découverte – disques rares", icon: "💎", hot: true, sheet: "Découverte",
+    { label: "Découverte – disques peu communs", icon: "🔍", hot: true, sheet: "Découverte",
+      badge: "Solde en cours", badgeEnd: "2026-11-28T00:00:00-05:00",   // pastille à côté de l'onglet, jusqu'à la fin du solde
       banner: {
-        title: "💎 Découverte – disques rares",
+        title: "🔍 Découverte – disques peu communs",
         lead: "Des disques peu communs, tous bien cotés sur Discogs.",
         points: [
-          ["Disques rares", "Des albums peu communs, mais qui ont tous de bonnes critiques (« reviews ») sur Discogs."],
+          ["Disques peu communs", "Des albums peu communs, mais qui ont tous de bonnes critiques (« reviews ») sur Discogs."],
           ["Condition", "Très bonne condition en moyenne (VG+ ou mieux)."],
           ["RABAIS EN LOT", "Solde spécial jusqu'au 27 novembre : 5 albums ou + : -30 % · 10 albums ou + : -50 % · 20 albums ou + : -60 %"],
           ["Calcul automatique", "Le rabais en lot est calculé dans votre sélection. Le rabais sur le total de la commande ne s'applique pas à ces disques."]
@@ -331,6 +332,8 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .note{font-size:12px;color:var(--muted);margin:0}
 .sumline[hidden]{display:none}
+.cat .pill{margin-left:8px;padding:2px 8px;border-radius:999px;background:#ffd23f;color:#1c1a17;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;animation:pillPulse 2s ease-in-out infinite}
+@keyframes pillPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,210,63,.6)}50%{box-shadow:0 0 0 5px rgba(255,210,63,0)}}
 .lotmsg{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#efe7ff;color:#3b2470;font-size:14px;line-height:1.4}
 .lotmsg[hidden]{display:none}
 .lotmsg .lsteps{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
@@ -773,9 +776,9 @@ function renderCats(){
   if(nNew) tabs.push({k:"__new",label:"Nouveautés",n:nNew,cls:"new"});
   tabs.push({k:"__all",label:"Tout",n:ALL.filter(i=>!HOT.has(i.cat)).length});
   const hot=[];
-  CATS.forEach(c=>{ const cf=CONFIG.CATEGORIES.find(x=>x.label===c.label)||{}; const t={k:c.label,label:(cf.icon?cf.icon+" ":"")+c.label,n:c.n,cls:cf.hot?"hot":""}; (cf.hot?hot:tabs).push(t); });
+  CATS.forEach(c=>{ const cf=CONFIG.CATEGORIES.find(x=>x.label===c.label)||{}; const t={k:c.label,label:(cf.icon?cf.icon+" ":"")+c.label,n:c.n,cls:cf.hot?"hot":"",badge:cf.badge&&(!cf.badgeEnd||Date.now()<Date.parse(cf.badgeEnd))?cf.badge:""}; (cf.hot?hot:tabs).push(t); });
   STYLE_TABS.forEach(t=>{ const n=ALL.filter(i=>inStyleTab(i,t)).length; if(n) tabs.push({k:t.key,label:t.label,n}); });
-  const btn=t=>`<button class="cat ${t.cls||""} ${!query&&cat===t.k?"on":""}" data-cat="${esc(t.k)}">${esc(t.label)}<small>${t.n}</small></button>`;
+  const btn=t=>`<button class="cat ${t.cls||""} ${!query&&cat===t.k?"on":""}" data-cat="${esc(t.k)}">${esc(t.label)}<small>${t.n}</small>${t.badge?`<span class="pill">${esc(t.badge)}</span>`:""}</button>`;
   $("#cats").innerHTML=tabs.map(btn).join("");
   $("#cats2").innerHTML=hot.map(btn).join("");   // l'onglet Aubaines sur sa propre ligne, sous les catégories
   $("#cats2").hidden=!hot.length;
@@ -1014,8 +1017,8 @@ function renderLot(lot){
   el.hidden=false;
   const steps=LT.map(t=>`<b class="${lot.n>=t.min?"on":""}">${t.min}+ : -${t.pct} %</b>`).join(" ");
   const msg = !lotOn() ? `Le ${esc(LOT.title.toLowerCase())} est terminé.`
-    : lot.cur && !lot.next ? `💎 Rabais maximal : -${lot.cur.pct} % sur vos ${lot.n} disques Découverte!`
-    : `💎 ${lot.cur?`-${lot.cur.pct} % sur vos ${lot.n} disques Découverte. `:`${lot.n} disque${lot.n>1?"s":""} Découverte. `}Encore <b>${lot.next.min-lot.n}</b> pour obtenir -${lot.next.pct} %.`;
+    : lot.cur && !lot.next ? `🔍 Rabais maximal : -${lot.cur.pct} % sur vos ${lot.n} disques Découverte!`
+    : `🔍 ${lot.cur?`-${lot.cur.pct} % sur vos ${lot.n} disques Découverte. `:`${lot.n} disque${lot.n>1?"s":""} Découverte. `}Encore <b>${lot.next.min-lot.n}</b> pour obtenir -${lot.next.pct} %.`;
   el.innerHTML=`<div class="msg">${msg}</div><div class="lsteps">${steps}</div>`;
 }
 function pricing(sub){
