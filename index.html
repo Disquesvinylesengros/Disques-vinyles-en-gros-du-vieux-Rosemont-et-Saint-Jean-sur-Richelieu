@@ -29,7 +29,7 @@ const CONFIG = {
         ]
       }
     },
-    { label: "Découverte – disques peu communs", icon: "🔍", hot: true, sheet: "Découverte",
+    { label: "Découverte – disques peu communs", icon: "🔍", hot: true, theme: "mauve", sheet: "Découverte",   // theme mauve = couleur « rare » (onglet, pastille, bannière)
       badge: "Solde en cours", badgeEnd: "2026-11-28T00:00:00-05:00",   // pastille à côté de l'onglet, jusqu'à la fin du solde
       banner: {
         title: "🔍 Découverte – disques peu communs",
@@ -375,6 +375,13 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 120px}
 .banner .lotbox .lti.g1{background:linear-gradient(160deg,#ffb347,#ff8a1f)}
 .banner .lotbox .lti.g2{background:linear-gradient(160deg,#ff5a4e,#d61f26);color:#fff;transform:scale(1.04);box-shadow:0 0 0 3px #fff3}
 .cat .pill{margin-left:8px;padding:2px 8px;border-radius:999px;background:#ffd23f;color:#1c1a17;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;animation:pillPulse 2s ease-in-out infinite}
+/* thème mauve (« rare ») : onglet Découverte, sa pastille et sa bannière */
+.cat.hot.mauve.on{background:#7b2cbf;box-shadow:0 0 0 3px #ffd23f}
+.cat.mauve .pill{background:#9d4edd;color:#fff;animation-name:pillPulseM}
+@keyframes pillPulseM{0%,100%{box-shadow:0 0 0 0 rgba(157,78,221,.7)}50%{box-shadow:0 0 0 5px rgba(157,78,221,0)}}
+.banner.mauve{background:linear-gradient(135deg,#7b2cbf,#4a148c)}
+.banner.mauve::after{background:radial-gradient(circle,#1c1a17 0 9%,rgba(255,255,255,.2) 9.5% 30%,#2a0d4a 30.5% 100%)}
+.banner.mauve .pt{background:rgba(20,0,40,.28)}
 @keyframes pillPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,210,63,.6)}50%{box-shadow:0 0 0 5px rgba(255,210,63,0)}}
 .lotmsg{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#efe7ff;color:#3b2470;font-size:14px;line-height:1.4}
 .lotmsg[hidden]{display:none}
@@ -819,7 +826,7 @@ function renderCats(){
   if(nNew) tabs.push({k:"__new",label:"Nouveautés",n:nNew,cls:"new"});
   tabs.push({k:"__all",label:"Tout",n:ALL.filter(i=>!HOT.has(i.cat)).length});
   const hot=[];
-  CATS.forEach(c=>{ const cf=CONFIG.CATEGORIES.find(x=>x.label===c.label)||{}; const t={k:c.label,label:(cf.icon?cf.icon+" ":"")+c.label,n:c.n,cls:cf.hot?"hot":"",badge:cf.badge&&(!cf.badgeEnd||Date.now()<Date.parse(cf.badgeEnd))?cf.badge:""}; (cf.hot?hot:tabs).push(t); });
+  CATS.forEach(c=>{ const cf=CONFIG.CATEGORIES.find(x=>x.label===c.label)||{}; const t={k:c.label,label:(cf.icon?cf.icon+" ":"")+c.label,n:c.n,cls:(cf.hot?"hot":"")+(cf.theme?" "+cf.theme:""),badge:cf.badge&&(!cf.badgeEnd||Date.now()<Date.parse(cf.badgeEnd))?cf.badge:""}; (cf.hot?hot:tabs).push(t); });
   STYLE_TABS.forEach(t=>{ const n=ALL.filter(i=>inStyleTab(i,t)).length; if(n) tabs.push({k:t.key,label:t.label,n}); });
   const btn=t=>`<button class="cat ${t.cls||""} ${!query&&cat===t.k?"on":""}" data-cat="${esc(t.k)}">${esc(t.label)}<small>${t.n}</small>${t.badge?`<span class="pill">${esc(t.badge)}</span>`:""}</button>`;
   $("#cats").innerHTML=tabs.map(btn).join("");
@@ -904,10 +911,10 @@ function render(){
   moreIO?.disconnect();
   if(query) main.insertAdjacentHTML("beforeend",`<p class="lead">${list.length} résultat${list.length>1?"s":""} pour « ${esc(query)} » dans tout le catalogue.</p>`);
   else if(cat==="__new") main.insertAdjacentHTML("beforeend",`<p class="lead">L'arrivage de la semaine, en ordre alphabétique. Nouveaux arrivages chaque dimanche à 19 h 30!</p>`);
-  const bn=!query && CONFIG.CATEGORIES.find(c=>c.label===cat)?.banner;
+  const bcf=!query && CONFIG.CATEGORIES.find(c=>c.label===cat), bn=bcf&&bcf.banner;
   const lotHTML = bn && bn.lot && (CONFIG.LOT?.tiers||[]).length && (!CONFIG.LOT.end||Date.now()<Date.parse(CONFIG.LOT.end))
     ? `<div class="lotbox"><div class="lh"><span class="lt">${esc(bn.lot.title)}</span><span class="lu">${esc(bn.lot.until)}</span></div><div class="lts">${CONFIG.LOT.tiers.slice().sort((a,b)=>a.min-b.min).map((x,k,a)=>`<div class="lti g${a.length<2?2:Math.round(k*2/(a.length-1))}"><b>-${x.pct} %</b><span>${x.min} albums ou +</span></div>`).join("")}</div></div>` : "";
-  if(bn) main.insertAdjacentHTML("beforeend",`<section class="banner"><h2>${esc(bn.title)}</h2>${bn.lead?`<p class="lead2">${esc(bn.lead)}</p>`:""}${lotHTML}<div class="pts">${(bn.points||[]).map(([t,d])=>`<div class="pt"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div></section>`);
+  if(bn) main.insertAdjacentHTML("beforeend",`<section class="banner${bcf.theme?" "+bcf.theme:""}"><h2>${esc(bn.title)}</h2>${bn.lead?`<p class="lead2">${esc(bn.lead)}</p>`:""}${lotHTML}<div class="pts">${(bn.points||[]).map(([t,d])=>`<div class="pt"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div></section>`);
   if(!list.length){ main.insertAdjacentHTML("beforeend",'<div class="empty">Aucun album ne correspond.</div>'); return; }
 
   // regrouper par lettre quand on trie par artiste
