@@ -1014,7 +1014,7 @@ function observeCovers(){
 }
 
 /* ---------- Panier ---------- */
-const money = n => n.toLocaleString("fr-CA",{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2})+" $";
+const money = n => Math.round(n).toLocaleString("fr-CA",{maximumFractionDigits:0})+" $";   // montants affichés arrondis au dollar près
 function toggle(code){
   const i=ALL.find(x=>x.code===code); if(!i) return;
   if(i.reserved && !cart[code]){ toast("Cet album est déjà réservé."); return; }
@@ -1031,7 +1031,7 @@ function toggle(code){
 }
 // ---------- Rabais ----------
 const TIERS=(CONFIG.DISCOUNTS||[]).slice().sort((a,b)=>a.min-b.min);
-const r2=n=>Math.round(n*100)/100;
+const r2=n=>Math.round(n);   // calculs du panier (rabais, totaux) arrondis au dollar près
 const SALE=CONFIG.SALE||{};
 function saleOn(){
   if(!SALE.on||!SALE.pct) return false;
