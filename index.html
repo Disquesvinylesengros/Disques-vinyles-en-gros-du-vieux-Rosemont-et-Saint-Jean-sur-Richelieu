@@ -56,12 +56,12 @@ const CONFIG = {
   // Solde temporaire : remplace les rabais par palier pendant la période (heure de Montréal).
   // Pour l'enlever plus tôt : mettez « on: false ». Après la date de fin, tout revient automatiquement.
   SALE: {
-    on: false,
+    on: true,
     pct: 25,
-    start: "2026-10-16T00:00:00-04:00",
-    end:   "2026-10-26T00:00:00-04:00",   // fin : dimanche 25 octobre à 23 h 59
-    title: "Solde de lancement du site web",
-    until: "jusqu'au dimanche 25 octobre"
+    start: "2026-11-27T00:00:00-05:00",
+    end:   "2026-11-28T00:00:00-05:00",   // fin : vendredi 27 novembre à minuit
+    title: "Solde Black Friday",
+    until: "aujourd'hui seulement, jusqu'à minuit"
   },
   // Rabais en lot de l'onglet Découverte (numéros D-…) : selon le NOMBRE de disques Découverte.
   // Ces disques sont exclus des rabais par palier sur le total. Après « end », plus de rabais en lot.
@@ -1093,7 +1093,7 @@ function renderPromo(){
     $("#promoWrap").hidden=false;
     $("#promo").innerHTML=`<span class="sl"><span class="k">${esc(SALE.title)}</span>`+
       `<span class="big"><em>-${SALE.pct} %</em>sur tout le site</span>`+
-      `<span class="u">${esc(SALE.until)} · le prix soldé est affiché sous chaque disque (nouveautés exclues)</span></span>`+
+      `<span class="u">${esc(SALE.until)} · le prix soldé est affiché sous chaque disque (sauf nouveautés et Découverte, qui garde son rabais en lot)</span></span>`+
       (TIERS.length?`<span class="old"><span>Rabais habituels :</span>${tiersHTML}<span class="xs">suspendus pendant le solde, de retour ensuite.</span></span>`:"");
     return;
   }
@@ -1104,7 +1104,7 @@ function renderPromo(){
 }
 function renderTiers(sub){
   const el=$("#tiers");
-  if(saleOn()){ el.hidden=false; el.innerHTML=`<div class="msg m2">🔥🔥🔥 ${esc(SALE.title)} : -${SALE.pct} % appliqué sur chaque disque (sauf les nouveautés), ${esc(SALE.until)}.</div>`; return; }
+  if(saleOn()){ el.hidden=false; el.innerHTML=`<div class="msg m2">🔥🔥🔥 ${esc(SALE.title)} : -${SALE.pct} % appliqué sur chaque disque (sauf les nouveautés et les disques Découverte), ${esc(SALE.until)}.</div>`; return; }
   if(!TIERS.length){ el.hidden=true; return; }
   const p=pricing(sub), max=TIERS[TIERS.length-1].min;
   const msg = !sub ? `Rabais de ${TIERS[0].pct} % dès ${money(TIERS[0].min)} d'achat.`
